@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Halaman Registrasi</title>
+</head>
+<body>
+    <h1>Form Registrasi</h1>
+    <form action="/register" method="POST" enctype="multipart/form-data">
+        <label for="name">Nama:</label><br>
+        <input type="text" id="username" name="username" placeholder="Masukkan nama" required><br><br>
+
+        <label for="password">Password:</label><br>
+        <input type="password" id="password" name="password" placeholder="Masukkan password" required><br><br>
+
+        <label for="photo">Unggah Foto:</label><br>
+        <input type="file" id="photo" name="photo" accept="image/*" required><br><br>
+
+        <button type="submit">Daftar</button>
+    </form>
+</body>
+</html>
