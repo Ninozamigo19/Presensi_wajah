@@ -7,6 +7,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
+    print("Navigating to homepage")
     return render_template('Homepage.html')
 
 @app.route('/Presensi')

@@ -1,12 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="IE=chrome">
-    <title>Face Detection System</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
+{% extends "nav.html" %}
+
+{% block title %}
+
+{% endblock %}
+<script>
         // Fungsi untuk mengecek status deteksi wajah dari server
         async function checkStatus() {
             try {
@@ -32,16 +29,22 @@
 
         // Mengecek status setiap 1 detik
         setInterval(checkStatus, 1000);
-    </script>
-</head>
-<body class="bg-gray-300 flex items-center justify-center min-h-screen">
-    <div class="border-8 border-purple-300 rounded-lg shadow-lg inline-block h-96 w-96">
-        <img class="rounded-lg h-full w-full object-cover" src="{{ url_for('video_feed') }}" alt="Video Stream">
-    </div>
-    <div class="border-8 border-purple-300 rounded-lg shadow-lg inline-block h-96 w-60 ml-4 flex items-center justify-center">
-        <div class="bg-purple-300 ml-10 mr-10 mt-4 justify-center border-8 border-purple-300 rounded-lg">
-            <h1 id="statusText" class="text-center text-xl font-bold text-slate-50">READY</h1>
+</script>
+
+{% block body1 %}
+<body class="bg-gray-300 dark:bg-gray-300 min-h-screen flex items-center justify-center">
+    <div class="bg-gray-300 flex min-h-screen justify-center items-center">
+        <div>
+            <h1></h1>
+        </div>
+            <br>
+        <div class="border-8 border-purple-300 rounded-lg shadow-lg h-96 w-96">
+            <img src="{{ url_for('video_feed') }}" class="rounded-lg h-full w-full object-cover" alt="Video Stream">
+        </div>
+        <div class="border-8 border-purple-300 rounded-lg shadow-lg h-24 w-60 ml-4 flex items-center justify-center">
+            <h1 id="statusText" class="text-xl font-bold text-slate-50">READY</h1>
         </div>
     </div>
 </body>
-</html>
+{% endblock %}
+
