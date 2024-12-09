@@ -205,8 +205,6 @@ def generate_frames():
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
     cap.release()
-# Memuat referensi gambar dari database
-    reference_imgs = fetch_reference_images()
 
 # Route untuk halaman utama
 @app.route('/')
@@ -229,3 +227,5 @@ def status():
 
 if __name__ == "__main__":
     app.run(debug=True)
+# Memuat referensi gambar dari database
+    reference_imgs = fetch_reference_images()
