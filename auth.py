@@ -31,5 +31,10 @@ def signup():
 def success():
     return "<h1>Registrasi berhasil!</h1>"
 
+@app.route('/login')
+def login():
+    print("Navigating to login page")
+    return render_template('login.html')
+
 if __name__ == "__main__":
     app.run(debug=True)
