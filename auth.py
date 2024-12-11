@@ -7,6 +7,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
+    print("Navigating to homepage")
     return render_template('Homepage.html')
 
 @app.route('/Presensi')
@@ -29,6 +30,11 @@ def signup():
 @app.route('/success')
 def success():
     return "<h1>Registrasi berhasil!</h1>"
+
+@app.route('/login')
+def login():
+    print("Navigating to login page")
+    return render_template('login.html')
 
 if __name__ == "__main__":
     app.run(debug=True)
