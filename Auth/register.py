@@ -47,7 +47,7 @@ def register():
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO users (id, username, password, photo) 
+                INSERT INTO pengguna (id, username, password, photo) 
                 VALUES (%s, %s, %s, %s)
             ''', (user_id, username, password, photo.filename))
             conn.commit()

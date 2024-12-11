@@ -39,38 +39,23 @@ def fetch_reference_images():
     if conn:
         try:
             cursor = conn.cursor()
-            # Query untuk mendapatkan nama pengguna dan nama file gambar
             cursor.execute("SELECT username, photo FROM pengguna")
-            user_data = cursor.fetchall()
+            rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
 
-            reference_images = []
-            for name, photo in user_data:
-                if photo:
-                    image_path = f"assets/images/{photo}"  # Path file gambar
-                    img = cv2.imread(image_path)
-                    if img is not None:
-                        reference_images.append((name, img))
-                    else:
-                        print(f"Error: Unable to load image {image_path}")
-            return reference_images
+            images = []
+            for name, photo_path in rows:
+                image = cv2.imread(photo_path)
+                if image is not None:
+                    images.append((name, image))
+                else:
+                    print(f"Error: Could not load image for {name} from {photo_path}")
+            return images
         except Exception as e:
             print(f"Error fetching reference images: {e}")
-        finally:
-            conn.close()
+            return []
     return []
-
-    #         images = []
-    #         for name, photo_path in rows:
-    #             image = cv2.imread(photo_path)
-    #             if image is not None:
-    #                 images.append((name, image))
-    #             else:
-    #                 print(f"Error: Could not load image for {name} from {photo_path}")
-    #         return images
-    #     except Exception as e:
-    #         print(f"Error fetching reference images: {e}")
-    #         return []
-    # return []
 
 
 # Fungsi untuk mendapatkan ID pengguna berdasarkan nama
@@ -114,16 +99,15 @@ def check_face(frame):
     global face_match, matched_image, already_present, is_verifying
     try:
         for img_name, ref_img in reference_imgs:
+            print(f"Comparing frame with reference image for {img_name}")  # Debug log
             result = DeepFace.verify(frame, ref_img.copy())['verified']
             if result:
                 with lock:
-                    # Ambil ID pengguna berdasarkan nama
                     user_id = get_user_id_by_name(img_name)
                     if not user_id:
                         print(f"User ID not found for {img_name}. Skipping record.")
                         continue
 
-                    # Periksa apakah sudah presensi hari ini
                     if face_already_present_today(user_id):
                         already_present = True
                         face_match = False
@@ -131,7 +115,6 @@ def check_face(frame):
                         face_match = True
                         matched_image = img_name
                         already_present = False
-                        # Simpan presensi ke database
                         save_face_match(user_id, img_name)
                     break
         else:
@@ -148,6 +131,7 @@ def check_face(frame):
     finally:
         with lock:
             is_verifying = False
+
 
 
 # Fungsi untuk menyimpan data presensi ke database
@@ -226,6 +210,6 @@ def status():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
 # Memuat referensi gambar dari database
     reference_imgs = fetch_reference_images()
+    app.run(debug=True)
