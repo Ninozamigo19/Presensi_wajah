@@ -4,6 +4,7 @@ from flask import Flask, render_template, Response, jsonify
 from deepface import DeepFace
 import psycopg2
 from datetime import datetime
+import os
 
 app = Flask(__name__)
 
@@ -44,18 +45,40 @@ def fetch_reference_images():
             cursor.close()
             conn.close()
 
+            # Tambahkan path direktori dasar di mana file gambar disimpan
+            base_path = "/path/to/assets/images"  # Ganti dengan direktori gambar Anda
+
             images = []
             for name, photo_path in rows:
-                image = cv2.imread(photo_path)
-                if image is not None:
+                try:
+                    # Gabungkan direktori dasar dengan nama file
+                    full_path = os.path.join(base_path, photo_path)
+
+                    # Validasi keberadaan file
+                    if not os.path.exists(full_path):
+                        print(f"Error: File {photo_path} does not exist for {name}. Skipping.")
+                        continue
+
+                    # Memuat gambar
+                    image = cv2.imread(full_path)
+                    if image is None:
+                        print(f"Error: Could not load image from {photo_path} for {name}. Skipping.")
+                        continue
+
+                    # Tambahkan gambar yang valid ke list
                     images.append((name, image))
-                else:
-                    print(f"Error: Could not load image for {name} from {photo_path}")
+
+                except Exception as img_error:
+                    print(f"Error processing image for {name}: {img_error}")
             return images
-        except Exception as e:
-            print(f"Error fetching reference images: {e}")
+
+        except Exception as db_error:
+            print(f"Error fetching reference images: {db_error}")
             return []
+    else:
+        print("Error: Could not establish database connection.")
     return []
+
 
 
 # Fungsi untuk mendapatkan ID pengguna berdasarkan nama
@@ -189,7 +212,7 @@ def generate_frames():
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
     cap.release()
-
+    
 # Route untuk halaman utama
 @app.route('/')
 def index():
@@ -210,6 +233,6 @@ def status():
 
 
 if __name__ == "__main__":
-# Memuat referensi gambar dari database
+    # Memuat referensi gambar dari database
     reference_imgs = fetch_reference_images()
     app.run(debug=True)
