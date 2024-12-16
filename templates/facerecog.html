@@ -1,50 +1,95 @@
-{% extends "nav.html" %}
+    {% extends "nav.html" %}
 
-{% block title %}
+    {% block title %}
+    Interactive Page
+    {% endblock %}
 
-{% endblock %}
-<script>
-        // Fungsi untuk mengecek status deteksi wajah dari server
+    <script>
+        // Function to check the face detection status from the server
         async function checkStatus() {
             try {
                 const response = await fetch('/status');
                 const data = await response.json();
                 const statusText = document.getElementById("statusText");
 
-                // Mengubah teks berdasarkan status dari server
+                // Update text and styles based on server status
                 if (data.already_present) {
                     statusText.innerText = "ALREADY PRESENT";
-                    statusText.style.color = "yellow"; // Warna kuning untuk pesan "ALREADY PRESENT"
+                    statusText.style.color = "yellow";
+                    statusText.style.animation = "blink 1s infinite";
+                    logEvent("ALREADY PRESENT");
                 } else if (data.detected) {
                     statusText.innerText = "DETECT";
-                    statusText.style.color = "green"; // Warna hijau untuk pesan "DETECT"
+                    statusText.style.color = "green";
+                    statusText.style.animation = "pulse 1s infinite";
+                    logEvent("DETECT");
                 } else {
                     statusText.innerText = "READY";
-                    statusText.style.color = "blue"; // Warna biru untuk pesan "READY"
+                    statusText.style.color = "blue";
+                    statusText.style.animation = "none";
+                    logEvent("READY");
                 }
             } catch (error) {
                 console.error("Error fetching status:", error);
             }
         }
 
-        // Mengecek status setiap 1 detik
+        // Log events
+        function logEvent(status) {
+            const logList = document.getElementById("logList");
+            const timestamp = new Date().toLocaleTimeString();
+            const newLog = document.createElement("li");
+            newLog.textContent = `[${timestamp}] Status: ${status}`;
+            logList.prepend(newLog);
+        }
+
+        // Check status every 1 second
         setInterval(checkStatus, 1000);
-</script>
+    </script>
 
-{% block body1 %}
-<body class="bg-gray-300 dark:bg-gray-300 min-h-screen flex items-center justify-center">
-    <div class="bg-gray-300 flex min-h-screen justify-center items-center">
-        <div>
-            <h1></h1>
-        </div>
-            <br>
-        <div class="border-8 border-purple-300 rounded-lg shadow-lg h-96 w-96">
-            <img src="{{ url_for('video_feed') }}" class="rounded-lg h-full w-full object-cover" alt="Video Stream">
-        </div>
-        <div class="border-8 border-purple-300 rounded-lg shadow-lg h-24 w-60 ml-4 flex items-center justify-center">
-            <h1 id="statusText" class="text-xl font-bold text-slate-50">READY</h1>
-        </div>
-    </div>
-</body>
-{% endblock %}
+    <style>
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+        }
 
+        @keyframes blink {
+            50% {
+                opacity: 0;
+            }
+        }
+    </style>
+
+    {% block body1 %}
+    <body class="bg-gray-300 dark:bg-gray-300 min-h-screen flex items-center justify-center">
+        <div class="flex flex-col items-center space-y-4">
+            <!-- Status Display -->
+            <div class="border-8 border-purple-300 rounded-lg shadow-lg h-24 w-60 flex items-center justify-center">
+                <h1 id="statusText" class="text-xl font-bold text-slate-50">READY</h1>
+            </div>
+
+            <div class="flex flex-row items-center space-x-8">
+                <!-- Welcome Box -->
+                <div id="welcomeBox" class="bg-white p-4 rounded-lg shadow-md w-80 h-96">
+                    <h2 class="text-lg font-bold mb-2 text-center">Welcome</h2>
+                    <p class="text-sm text-gray-700 text-center">Welcome to the Face Detection System! The camera feed is active and ready to detect faces in real-time. Keep track of status updates and events in the log.</p>
+                </div>
+            
+                <!-- Video Stream Container -->
+                <div class="border-8 border-purple-300 rounded-lg shadow-lg hover:shadow-2xl transition-shadow duration-300 h-96 w-96">
+                    <img src="{{ url_for('video_feed') }}" class="rounded-lg h-full w-full object-cover" alt="Video Stream">
+                </div>
+            
+                <!-- Event Log -->
+                <div id="eventLog" class="bg-white p-4 rounded-lg shadow-md w-80 h-96 overflow-y-auto">
+                    <h2 class="text-lg font-bold mb-2">Event Log</h2>
+                    <ul id="logList" class="text-sm text-gray-700"></ul>
+                </div>
+            </div>            
+        </div>
+    </body>
+    {% endblock %}
