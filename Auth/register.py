@@ -27,7 +27,7 @@ def register():
         password = request.form['password']
         photo = request.files['photo']
 
-        # Validasi file yang diunggah (hanya JPG)
+        # Validasi file yang diunggah (hanya PNG)
         ALLOWED_EXTENSIONS = {'jpg'}
         def allowed_file(filename):
             return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
