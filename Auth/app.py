@@ -34,25 +34,17 @@ def create_connection():
         return None
 
 # Fungsi untuk memuat gambar dari jalur lokal atau URL
-def load_image(path_or_url):
-    if path_or_url.startswith("http"):  # Jika URL
-        try:
-            response = requests.get(path_or_url, stream=True)
-            if response.status_code == 200:
-                img_array = np.asarray(bytearray(response.content), dtype=np.uint8)
-                return cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-            else:
-                print(f"Failed to fetch image from URL: {path_or_url}")
-                return None
-        except Exception as e:
-            print(f"Error loading image from URL {path_or_url}: {e}")
-            return None
-    else:  # Jika jalur lokal
-        img_path = os.path.join("assets/images", path_or_url)  # Gabungkan dengan folder
-        img = cv2.imread(img_path)
-        if img is None:
-            print(f"Failed to load image from path: {img_path}")
-        return img
+def load_image(path_or_url, subfolder=None):
+    if subfolder:
+        img_path = os.path.join("assets", "images", subfolder, path_or_url)
+    else:
+        img_path = os.path.join("assets", "images", path_or_url)
+
+    img = cv2.imread(img_path)
+    
+    if img is None:
+        print(f"Failed to load image from path: {img_path}")
+    return img
 
 # Fungsi untuk mengambil referensi gambar dari database
 def get_reference_images():
@@ -61,17 +53,27 @@ def get_reference_images():
         return []
 
     cursor = conn.cursor()
-    cursor.execute("SELECT username, photo FROM pengguna")  # Asumsi tabel memiliki kolom 'nama' dan 'foto'
+    cursor.execute("SELECT user_id, photo_front, photo_right, photo_left FROM pengguna")
     rows = cursor.fetchall()
 
     reference_imgs = []
     for row in rows:
-        name, img_path = row
-        img = load_image(img_path)
-        if img is not None:
-            reference_imgs.append((name, img))
-        else:
-            print(f"Image for {name} could not be loaded.")
+        try:
+            user_id = row[0]  # user_id
+            photo_front = row[1]  # photo_front
+            photo_right = row[2]  # photo_right
+            photo_left = row[3]  # photo_left
+
+            # Proses gambar-gambar (kanan, depan, kiri)
+            for subfolder, img_path in {'depan': photo_front, 'kanan': photo_right, 'kiri': photo_left}.items():
+                if img_path:
+                    img = load_image(img_path, subfolder=subfolder)
+                    if img is not None:
+                        reference_imgs.append((user_id, img))
+                    else:
+                        print(f"Image for {user_id} ({subfolder}) could not be loaded.")
+        except IndexError as e:
+            print(f"Error accessing tuple elements: {e}")
 
     cursor.close()
     conn.close()
@@ -84,9 +86,8 @@ def face_already_present_today(matched_image):
         try:
             cursor = conn.cursor()
             today_date = datetime.now().date()
-            cursor.execute('''
-                SELECT COUNT(*) FROM face_matches WHERE username = %s AND DATE(tanggal_dan_waktu) = %s
-            ''', (matched_image, today_date))
+            cursor.execute('''SELECT COUNT(*) FROM face_matches WHERE user_id = %s AND DATE(tanggal_dan_waktu) = %s''',
+                           (matched_image, today_date))
             result = cursor.fetchone()[0]
             cursor.close()
             conn.close()
@@ -116,21 +117,21 @@ def check_face(frame):
                         face_match = True
                         matched_image = img_name
                         already_present = False
-                        
-                        # conn = create_connection()
-                        # if conn:
-                        #     cursor = conn.cursor()
-                        #     try:
-                        #         today_date = datetime.now().date()
-                        #         cursor.execute("INSERT INTO face_matches (username, tanggal) VALUES (%s, %s)",
-                        #                        (matched_image, today_date))
-                        #         conn.commit()
-                        #         print(f"Data tersimpan untuk {matched_image} pada {today_date}")
-                        #     except Exception as e:
-                        #         print(f"Error inserting data into database: {e}")
-                        #     finally:
-                        #         cursor.close()
-                        #         conn.close()
+
+                        conn = create_connection()
+                        if conn:
+                            cursor = conn.cursor()
+                            try:
+                                today_date = datetime.now().date()
+                                cursor.execute("INSERT INTO face_matches (user_id, tanggal) VALUES (%s, %s)",
+                                               (matched_image, today_date))
+                                conn.commit()
+                                print(f"Data tersimpan untuk {matched_image} pada {today_date}")
+                            except Exception as e:
+                                print(f"Error inserting data into database: {e}")
+                            finally:
+                                cursor.close()
+                                conn.close()
 
                     break
         else:
