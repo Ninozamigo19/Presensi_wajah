@@ -49,7 +49,7 @@ def register():
             cursor.execute('''
                 INSERT INTO pengguna (id, username, password, photo) 
                 VALUES (%s, %s, %s, %s)
-            ''', (user_id, username, password, photo.filename))
+            ''', (user_id, username, password, photo.filename)) #tambah foto samping kanan dan kiri
             conn.commit()
             cursor.close()
             conn.close()
