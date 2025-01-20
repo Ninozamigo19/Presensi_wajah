@@ -1,14 +1,32 @@
-from flask import Flask , render_template, Response, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, Response, jsonify
 
 from Auth.app import generate_frames, face_match, already_present
 from Auth.register import register
+from Auth.login import login
 
 app = Flask(__name__)
 
 @app.route('/')
+def loginPage():
+    print("Navigating to login page")
+    return render_template('login.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def LoginFunction():
+    return login
+
+@app.route('/logout')
+def logout():
+    session.pop('username', None)
+    flash('Anda telah logout.', 'info')
+    return redirect(url_for('loginPage'))
+
+
+@app.route('/Home')
 def home():
-    print("Navigating to homepage")
-    return render_template('Homepage.html')
+    if 'username' in session:
+        return render_template('Homepage.html', username=session['username'])
+    return redirect(url_for('loginPage'))
 
 @app.route('/Presensi')
 def presensi():
@@ -30,11 +48,6 @@ def signup():
 @app.route('/success')
 def success():
     return "<h1>Registrasi berhasil!</h1>"
-
-@app.route('/login')
-def login():
-    print("Navigating to login page")
-    return render_template('login.html')
 
 if __name__ == "__main__":
     app.run(debug=True)

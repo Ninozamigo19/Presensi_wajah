@@ -14,10 +14,10 @@
                     <h1 class="text-xl font-bold leading-tight tracking-tight text-white md:text-2xl">
                         Sign In
                     </h1>
-                    <form class="space-y-4 md:space-y-6" action="#" method="get">
+                    <form class="space-y-4 md:space-y-6" action="{{ url_for('loginPage') }}" method="post">
                         <div>
                             <label for="username" class="block mb-2 text-sm font-medium text-white">Your ID</label>
-                            <input type="username" name="username" id="username" class="bg-gray-700 border border-gray-600 text-white rounded-lg
+                            <input type="text" name="username" id="username" class="bg-gray-700 border border-gray-600 text-white rounded-lg
                              focus:ring-gray-500 focus:border-gray-500 block w-full p-2.5 placeholder-gray-400" 
                                placeholder="ID" required="">
                         </div>
