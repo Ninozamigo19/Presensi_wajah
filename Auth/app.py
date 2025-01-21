@@ -4,11 +4,12 @@ from flask import Flask, render_template, Response, jsonify
 from deepface import DeepFace
 import psycopg2
 from datetime import datetime
-import requests
+from decouple import config
 import numpy as np
 import os
 
 app = Flask(__name__)
+app.secret_key=config('SECRET_KEY')
 
 # Variabel global untuk verifikasi wajah
 counter = 0
