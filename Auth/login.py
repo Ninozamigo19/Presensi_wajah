@@ -1,8 +1,9 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 import psycopg2
+from decouple import config
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'
+app.secret_key = config('SECRET_KEY', default='36bbfeee4f53a83212bbf8a4984e96101983c4b61c39cc19b0d01fead6332272')
 
 # Konfigurasi Database
 def get_db():
