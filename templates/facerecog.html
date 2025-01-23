@@ -1,7 +1,7 @@
     {% extends "nav.html" %}
 
     {% block title %}
-    Interactive Page
+    Presensi
     {% endblock %}
 
     <script>
@@ -69,26 +69,32 @@
     <body class="bg-gray-300 dark:bg-gray-300 min-h-screen flex items-center justify-center">
         <div class="flex flex-col items-center space-y-4">
             <!-- Status Display -->
-            <div class="border-8 border-purple-300 rounded-lg shadow-lg h-24 w-60 flex items-center justify-center">
-                <h1 id="statusText" class="text-xl font-bold text-slate-50">READY</h1>
+            <div class="border-4 bg-white border-black rounded-lg shadow-lg h-24 w-60 flex items-center justify-center">
+                <h1 id="statusText" class="text-xl font-bold text-black">READY</h1>
             </div>
 
             <div class="flex flex-row items-center space-x-8">
                 <!-- Welcome Box -->
                 <div id="welcomeBox" class="bg-white p-4 rounded-lg shadow-md w-80 h-96">
-                    <h2 class="text-lg font-bold mb-2 text-center">Welcome</h2>
-                    <p class="text-sm text-gray-700 text-center">Welcome to the Face Detection System! The camera feed is active and ready to detect faces in real-time. Keep track of status updates and events in the log.</p>
+                    <h2 class="text-lg font-bold mb-2 text-center">Halo</h2>
+                    <span class="block mt-1 mb-1 w-auto h-px bg-black mx-full"></span>
+                    <p class="text-sm text-gray-700 text-center">Selamat datang di halaman presensi! Kamera sudah aktif dan siap mendeteksi. Tabel di kanan berfungsi untuk memantau perubahan status selama absen.</p>
                 </div>
             
                 <!-- Video Stream Container -->
-                <div class="border-8 border-purple-300 rounded-lg shadow-lg hover:shadow-2xl transition-shadow duration-300 h-96 w-96">
+                <div class="border-4 border-black rounded-lg shadow-lg hover:shadow-2xl transition-shadow duration-300 h-96 w-96">
                     <img src="{{ url_for('video_feed') }}" class="rounded-lg h-full w-full object-cover" alt="Video Stream">
                 </div>
             
-                <!-- Event Log -->
-                <div id="eventLog" class="bg-white p-4 rounded-lg shadow-md w-80 h-96 overflow-y-auto">
-                    <h2 class="text-lg font-bold mb-2">Event Log</h2>
-                    <ul id="logList" class="text-sm text-gray-700"></ul>
+                <!-- Instructions -->
+                <div id="instructionsBox" class="bg-white p-4 rounded-lg shadow-md w-80 h-96">
+                    <h2 class="text-lg font-bold mb-2 text-center">Instruksi</h2>
+                    <span class="block mt-1 mb-1 w-auto h-px bg-black mx-full"></span>
+                    <ul class="text-sm text-gray-700 space-y-2 list-disc list-outside pl-5">
+                        <li>Pastikan muka terlihat jelas oleh kamera.</li>
+                        <li>Tunggu hingga status menunjukkan deteksi.</li>
+                        <li>Jika presensi berhasil maka status akan berubah menjadi sudah absen</li>
+                    </ul>
                 </div>
             </div>            
         </div>
