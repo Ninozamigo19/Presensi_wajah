@@ -4,7 +4,9 @@ import os
 import psycopg2
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'assets/images/'
+app.config['UPLOAD_FOLDER_FRONT'] = 'assets/images/depan/'
+app.config['UPLOAD_FOLDER_RIGHT'] = 'assets/images/kanan/'
+app.config['UPLOAD_FOLDER_LEFT'] = 'assets/images/kiri/'
 
 # Konfigurasi PostgreSQL
 DB_CONFIG = {
@@ -25,19 +27,31 @@ def register():
         # Ambil data dari form
         username = request.form['username']
         password = request.form['password']
-        photo = request.files['photo']
+        photofront = request.files['photo_depan']
+        photoright = request.files['photo_kanan']
+        photoleft = request.files['photo_kiri']
 
-        # Validasi file yang diunggah (hanya JPG)
+        # Validasi file yang diunggah (hanya PNG)
         ALLOWED_EXTENSIONS = {'jpg'}
-        def allowed_file(filename):
-            return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-        
-        if not allowed_file(photo.filename):
+
+        def allowed_file(*filenames):
+            """Memeriksa apakah semua file memiliki ekstensi yang diizinkan."""
+            for filename in filenames:
+                if not ('.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS):
+                    return False
+            return True
+
+        # Contoh penggunaan
+        if not allowed_file(photofront.filename, photoright.filename, photoleft.filename):
             return "Hanya file JPG yang diperbolehkan!", 400
 
         # Simpan foto ke server
-        photo_path = os.path.join(app.config['UPLOAD_FOLDER'], photo.filename)
-        photo.save(photo_path)
+        front_path = os.path.join(app.config['UPLOAD_FOLDER_FRONT'], photofront.filename)
+        right_path = os.path.join(app.config['UPLOAD_FOLDER_RIGHT'], photoright.filename)
+        left_path = os.path.join(app.config['UPLOAD_FOLDER_LEFT'], photoleft.filename)
+        photofront.save(front_path)
+        photoright.save(right_path)
+        photoleft.save(left_path)
 
         # Buat UUID sebagai ID unik
         user_id = str(uuid.uuid4())
@@ -47,9 +61,9 @@ def register():
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO users (id, username, password, photo) 
-                VALUES (%s, %s, %s, %s)
-            ''', (user_id, username, password, photo.filename))
+                INSERT INTO pengguna (user_id, username, password, photo_front, photo_right, photo_left) 
+                VALUES (%s, %s, %s, %s, %s, %s)
+            ''', (user_id, username, password, photofront.filename, photoright.filename, photoleft.filename)) #tambah foto samping kanan dan kiri
             conn.commit()
             cursor.close()
             conn.close()

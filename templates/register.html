@@ -31,6 +31,16 @@ Sign Up
                              text-white rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 placeholder-gray-400"
                                required="">
                         </div>
+                        <div>
+                            <label for="photo" class="text-white">Unggah Foto wajah Bagian Depan:</label><br>
+                            <input type="file" id="photo_depan" name="photo_depan" accept="image/*" required><br><br>
+
+                            <label for="photo" class="text-white">Unggah Foto wajah Bagian Kanan:</label><br>
+                            <input type="file" id="photo_kanan" name="photo_kanan" accept="image/*" required><br><br>
+
+                            <label for="photo" class="text-white">Unggah Foto wajah Bagian Kiri:</label><br>
+                            <input type="file" id="photo_kiri" name="photo_kiri" accept="image/*" required><br><br>
+                        </div>
                         <div class="flex items-center justify-between">
                             <div class="flex items-start">
                                 <div class="ml-3 text-sm">
@@ -42,7 +52,7 @@ Sign Up
                         <button type="submit" class="w-full text-white bg-gray-600 hover:bg-gray-700 focus:ring-4 focus:outline-none
                          focus:ring-gray-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Sign Up</button>
                         <p class="text-sm font-light text-gray-400">
-                             <a href="{{ url_for('login') }}" class="font-medium text-gray-500 hover:underline">Sudah Punya Akun</a>
+                             <a href="{{ url_for('signin') }}" class="font-medium text-gray-500 hover:underline">Sudah Punya Akun</a>
                         </p>
                     </form>
                 </div>

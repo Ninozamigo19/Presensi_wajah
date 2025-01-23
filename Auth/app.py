@@ -4,19 +4,21 @@ from flask import Flask, render_template, Response, jsonify
 from deepface import DeepFace
 import psycopg2
 from datetime import datetime
+from decouple import config
+import numpy as np
+import os
 
 app = Flask(__name__)
+app.secret_key=config('SECRET_KEY')
 
 # Variabel global untuk verifikasi wajah
 counter = 0
 face_match = False
 already_present = False
 matched_image = None
-reference_imgs = []
 
 lock = threading.Lock()
 is_verifying = False
-
 
 # Fungsi untuk koneksi ke PostgreSQL
 def create_connection():
@@ -32,114 +34,113 @@ def create_connection():
         print(f"Error connecting to database: {e}")
         return None
 
+# Fungsi untuk memuat gambar dari jalur lokal atau URL
+def load_image(path_or_url, subfolder=None):
+    if subfolder:
+        img_path = os.path.join("assets", "images", subfolder, path_or_url)
+    else:
+        img_path = os.path.join("assets", "images", path_or_url)
 
-# Fungsi untuk memuat referensi gambar dari database
-def fetch_reference_images():
+    img = cv2.imread(img_path)
+    
+    if img is None:
+        print(f"Failed to load image from path: {img_path}")
+    return img
+
+# Fungsi untuk mengambil referensi gambar dari database
+def get_reference_images():
     conn = create_connection()
-    if conn:
-        try:
-            cursor = conn.cursor()
-            # Query untuk mendapatkan nama pengguna dan nama file gambar
-            cursor.execute("SELECT username, photo FROM pengguna")
-            user_data = cursor.fetchall()
+    if not conn:
+        return []
 
-            reference_images = []
-            for name, photo in user_data:
-                if photo:
-                    image_path = f"assets/images/{photo}"  # Path file gambar
-                    img = cv2.imread(image_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id, photo_front, photo_right, photo_left FROM pengguna")
+    rows = cursor.fetchall()
+
+    reference_imgs = []
+    for row in rows:
+        try:
+            user_id = row[0]  # user_id
+            photo_front = row[1]  # photo_front
+            photo_right = row[2]  # photo_right
+            photo_left = row[3]  # photo_left
+
+            # Proses gambar-gambar (kanan, depan, kiri)
+            for subfolder, img_path in {'depan': photo_front, 'kanan': photo_right, 'kiri': photo_left}.items():
+                if img_path:
+                    img = load_image(img_path, subfolder=subfolder)
                     if img is not None:
-                        reference_images.append((name, img))
+                        reference_imgs.append((user_id, img))
                     else:
-                        print(f"Error: Unable to load image {image_path}")
-            return reference_images
-        except Exception as e:
-            print(f"Error fetching reference images: {e}")
-        finally:
-            conn.close()
-    return []
+                        print(f"Image for {user_id} ({subfolder}) could not be loaded.")
+        except IndexError as e:
+            print(f"Error accessing tuple elements: {e}")
 
-    #         images = []
-    #         for name, photo_path in rows:
-    #             image = cv2.imread(photo_path)
-    #             if image is not None:
-    #                 images.append((name, image))
-    #             else:
-    #                 print(f"Error: Could not load image for {name} from {photo_path}")
-    #         return images
-    #     except Exception as e:
-    #         print(f"Error fetching reference images: {e}")
-    #         return []
-    # return []
+    cursor.close()
+    conn.close()
+    return reference_imgs
 
-
-# Fungsi untuk mendapatkan ID pengguna berdasarkan nama
-def get_user_id_by_name(name):
-    conn = create_connection()
-    if conn:
-        try:
-            cursor = conn.cursor()
-            cursor.execute("SELECT id FROM pengguna WHERE username = %s", (name,))
-            result = cursor.fetchone()
-            cursor.close()
-            conn.close()
-            if result:
-                return result[0]  # ID pengguna
-            else:
-                print(f"User with name '{name}' not found in database.")
-        except Exception as e:
-            print(f"Error fetching user ID: {e}")
-    return None
-
-
-# Fungsi untuk memeriksa apakah wajah sudah presensi hari ini
-def face_already_present_today(user_id):
+# Fungsi untuk mengecek apakah wajah sudah terdeteksi hari ini
+def face_already_present_today(matched_image):
     conn = create_connection()
     if conn:
         try:
             cursor = conn.cursor()
             today_date = datetime.now().date()
-            cursor.execute("SELECT COUNT(*) FROM face_matches WHERE id = %s AND tanggal = %s", (user_id, today_date))
+            cursor.execute('''SELECT COUNT(*) FROM face_matches WHERE user_id = %s AND DATE(tanggal_dan_waktu) = %s''',
+                           (matched_image, today_date))
             result = cursor.fetchone()[0]
             cursor.close()
             conn.close()
-            return result > 0  # Jika ditemukan, berarti sudah presensi
+            return result > 0
         except Exception as e:
             print(f"Error checking face presence in database: {e}")
     return False
 
-
-# Fungsi untuk memverifikasi wajah
+# Fungsi untuk memeriksa kecocokan wajah
 def check_face(frame):
     global face_match, matched_image, already_present, is_verifying
+    reference_imgs = get_reference_images()
     try:
         for img_name, ref_img in reference_imgs:
+            if ref_img is None:
+                print(f"Skipping {img_name} due to invalid image.")
+                continue
+
             result = DeepFace.verify(frame, ref_img.copy())['verified']
             if result:
                 with lock:
-                    # Ambil ID pengguna berdasarkan nama
-                    user_id = get_user_id_by_name(img_name)
-                    if not user_id:
-                        print(f"User ID not found for {img_name}. Skipping record.")
-                        continue
-
-                    # Periksa apakah sudah presensi hari ini
-                    if face_already_present_today(user_id):
+                    # Cek apakah wajah sudah terdeteksi hari ini
+                    if face_already_present_today(img_name):
                         already_present = True
                         face_match = False
                     else:
                         face_match = True
                         matched_image = img_name
                         already_present = False
-                        # Simpan presensi ke database
-                        save_face_match(user_id, img_name)
+
+                        conn = create_connection()
+                        if conn:
+                            cursor = conn.cursor()
+                            try:
+                                today_date = datetime.now().date()
+                                cursor.execute("INSERT INTO face_matches (user_id, tanggal) VALUES (%s, %s)",
+                                               (matched_image, today_date))
+                                conn.commit()
+                                print(f"Data tersimpan untuk {matched_image} pada {today_date}")
+                            except Exception as e:
+                                print(f"Error inserting data into database: {e}")
+                            finally:
+                                cursor.close()
+                                conn.close()
+
                     break
         else:
             with lock:
                 face_match = False
                 matched_image = None
                 already_present = False
-    except Exception as e:
+    except ValueError as e:
         print(f"Error during face verification: {e}")
         with lock:
             face_match = False
@@ -149,24 +150,7 @@ def check_face(frame):
         with lock:
             is_verifying = False
 
-
-# Fungsi untuk menyimpan data presensi ke database
-def save_face_match(user_id, name):
-    conn = create_connection()
-    if conn:
-        try:
-            cursor = conn.cursor()
-            today_date = datetime.now().date()
-            cursor.execute("INSERT INTO face_matches (id, nama, tanggal) VALUES (%s, %s, %s)", (user_id, name, today_date))
-            conn.commit()
-            cursor.close()
-            conn.close()
-            print(f"Presence saved for {name} with ID {user_id}.")
-        except Exception as e:
-            print(f"Error saving face match: {e}")
-
-
-# Fungsi untuk menghasilkan frame dari webcam
+# Fungsi untuk menangkap frame kamera
 def generate_frames():
     global counter, face_match, matched_image, already_present, is_verifying
 
@@ -189,43 +173,36 @@ def generate_frames():
             # Tampilkan hasil verifikasi
             with lock:
                 if already_present:
-                    cv2.putText(frame, "ALREADY PRESENT!", (20, 450), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+                    cv2.putText(frame, "        ALREADY PRESENT!", (20, 450), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
                 elif face_match:
-                    cv2.putText(frame, f"MATCH: {matched_image}", (20, 450), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    cv2.putText(frame, "        MATCH", (20, 450), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                 else:
-                    cv2.putText(frame, "NO MATCH!", (20, 450), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                    cv2.putText(frame, "        NO MATCH!", (20, 450), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
             counter += 1
 
-            # Encode frame menjadi format byte untuk streaming
+            # Encode frame jadi format byte untuk streaming
             ret, buffer = cv2.imencode('.jpg', frame)
             frame = buffer.tobytes()
 
+            # Kirim frame sebagai respon byte stream
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
     cap.release()
 
-# Route untuk halaman utama
 @app.route('/')
 def index():
-    return render_template('facerecog.html')
+    return render_template('index.html')
 
-
-# Route untuk video streaming
 @app.route('/video_feed')
 def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-
-# Route untuk status deteksi
 @app.route('/status')
 def status():
     global face_match, already_present
     return jsonify({"detected": face_match, "already_present": already_present})
 
-
 if __name__ == "__main__":
     app.run(debug=True)
-# Memuat referensi gambar dari database
-    reference_imgs = fetch_reference_images()
