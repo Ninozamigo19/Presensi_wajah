@@ -1,5 +1,9 @@
 {% extends "nav.html" %}
 
+{% block title %}
+    Login
+{% endblock %}
+
 {% block body1 %}
 
 <body class="bg-gray-300 min-h-screen flex items-center justify-center">
@@ -16,10 +20,10 @@
                     </h1>
                     <form class="space-y-4 md:space-y-6" action="{{ url_for('signin') }}" method="POST">
                         <div>
-                            <label for="username" class="block mb-2 text-sm font-medium text-white">Your ID</label>
+                            <label for="username" class="block mb-2 text-sm font-medium text-white">Username</label>
                             <input type="text" name="username" id="username" class="bg-gray-700 border border-gray-600 text-white rounded-lg
                              focus:ring-gray-500 focus:border-gray-500 block w-full p-2.5 placeholder-gray-400" 
-                               placeholder="ID" required="">
+                               placeholder="Username" required="">
                         </div>
                         <div>
                             <label for="password" class="block mb-2 text-sm font-medium text-white">Password</label>
