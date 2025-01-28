@@ -16,14 +16,14 @@ Sign Up
             <div class="w-full bg-black rounded-lg shadow border border-black">
                 <div class="p-6 space-y-4 md:space-y-6 sm:p-8">
                     <h1 class="text-xl font-bold leading-tight tracking-tight text-white md:text-2xl">
-                        Sign Up
+                        Sign Up  
                     </h1>
                     <form class="space-y-4 md:space-y-6" action="/register" method="post" enctype="multipart/form-data">
                         <div>
-                            <label for="username" class="block mb-2 text-sm font-medium text-white">Your ID</label>
+                            <label for="username" class="block mb-2 text-sm font-medium text-white">Username</label>
                             <input type="username" name="username" id="username" class="bg-gray-700 border border-gray-600 text-white rounded-lg
                              focus:ring-gray-500 focus:border-gray-500 block w-full p-2.5 placeholder-gray-400" 
-                               placeholder="ID" required="">
+                               placeholder="Username" required="">
                         </div>
                         <div>
                             <label for="password" class="block mb-2 text-sm font-medium text-white">Password</label>
@@ -32,23 +32,30 @@ Sign Up
                                required="">
                         </div>
                         <div>
-                            <label for="photo" class="text-white">Unggah Foto wajah Bagian Depan:</label><br>
-                            <input type="file" id="photo_depan" name="photo_depan" accept="image/*" required><br><br>
-
-                            <label for="photo" class="text-white">Unggah Foto wajah Bagian Kanan:</label><br>
-                            <input type="file" id="photo_kanan" name="photo_kanan" accept="image/*" required><br><br>
-
-                            <label for="photo" class="text-white">Unggah Foto wajah Bagian Kiri:</label><br>
-                            <input type="file" id="photo_kiri" name="photo_kiri" accept="image/*" required><br><br>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-start">
-                                <div class="ml-3 text-sm">
-                                    <label for="remember" class="text-gray-300"></label>
-                                </div>
-                            </div>
-                            <br>
-                        </div>
+                            <!-- Photo Depan -->
+                            <label for="photo_depan" class="block mb-2 text-sm font-medium text-white">Upload Foto Wajah Bagian Depan:</label>
+                            <input type="file" id="photo_depan" name="photo_depan" accept="image/*" class="hidden" required>
+                            <label for="photo_depan" class="flex items-center justify-center px-4 py-2 mb-2 text-sm font-medium text-white bg-gray-600 rounded-lg cursor-pointer hover:bg-gray-700">
+                                Pilih File
+                            </label>
+                            <p id="photo_depan_indicator" class="text-sm font-medium text-white"></p>
+                        
+                            <!-- Photo Kanan -->
+                            <label for="photo_kanan" class="block mb-2 text-sm font-medium text-white">Upload Foto Wajah Bagian Kanan:</label>
+                            <input type="file" id="photo_kanan" name="photo_kanan" accept="image/*" class="hidden" required>
+                            <label for="photo_kanan" class="flex items-center justify-center px-4 py-2 mb-2 text-sm font-medium text-white bg-gray-600 rounded-lg cursor-pointer hover:bg-gray-700">
+                                Pilih File
+                            </label>
+                            <p id="photo_kanan_indicator" class="text-sm font-medium text-white"></p>
+                        
+                            <!-- Photo Kiri -->
+                            <label for="photo_kiri" class="block mb-2 text-sm font-medium text-white">Upload Foto Wajah Bagian Kiri:</label>
+                            <input type="file" id="photo_kiri" name="photo_kiri" accept="image/*" class="hidden" required>
+                            <label for="photo_kiri" class="flex items-center justify-center px-4 py-2 mb-2 text-sm font-medium text-white bg-gray-600 rounded-lg cursor-pointer hover:bg-gray-700">
+                                Pilih File
+                            </label>
+                            <p id="photo_kiri_indicator" class="text-sm font-medium text-white"></p>
+                        </div>                        
                         <button type="submit" class="w-full text-white bg-gray-600 hover:bg-gray-700 focus:ring-4 focus:outline-none
                          focus:ring-gray-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Sign Up</button>
                         <p class="text-sm font-light text-gray-400">
@@ -59,6 +66,24 @@ Sign Up
             </div>
         </div>
     </section>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const updateIndicator = (inputId, indicatorId) => {
+                const input = document.getElementById(inputId);
+                const indicator = document.getElementById(indicatorId);
+
+                input.addEventListener('change', function () {
+                    const fileName = input.files.length > 0 ? input.files[0].name : 'Tidak ada file dipilih';
+                    indicator.textContent = `File selected: ${fileName}`;
+                });
+            };
+
+            updateIndicator('photo_depan', 'photo_depan_indicator');
+            updateIndicator('photo_kanan', 'photo_kanan_indicator');
+            updateIndicator('photo_kiri', 'photo_kiri_indicator');
+        });
+    </script>
 </body>
 
 {% endblock %}
