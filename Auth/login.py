@@ -22,8 +22,9 @@ def get_db():
 # Route Halaman Utama
 @app.route('/')
 def home():
-    if 'username' in session:
-        return render_template('Homepage.html', username=session['username'])
+    user_logged_in = 'username' in session
+    if user_logged_in:
+        return render_template('Homepage.html', username=session['username'], user_logged_in=user_logged_in)
     return redirect(url_for('loginPage'))
 
 # Route Halaman Login
