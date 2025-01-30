@@ -1,31 +1,59 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, Response, jsonify
 from decouple import config
+from flask_login import LoginManager, logout_user, login_required, current_user
+import uuid
 
 from Auth.app import generate_frames, face_match, already_present
 from Auth.register import register
-from Auth.login import login
+from Auth.login import login , get_db, User
 
 app = Flask(__name__)
 app.secret_key=config('SECRET_KEY', default='36bbfeee4f53a83212bbf8a4984e96101983c4b61c39cc19b0d01fead6332272')
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'signin'  # Redirect unauthorized users
 
 @app.route('/', methods=['GET', 'POST'])
 def signin():
     return login()
 
-@app.route('/logout')
+@app.route('/logout', methods=['GET', 'POST'])
+@login_required
 def logout():
-    session.pop('username', None)
-    flash('Anda telah logout.', 'info')
+    logout_user()
+    flash('You have been logged out.', 'info')
     return redirect(url_for('signin'))
 
+
+@login_manager.user_loader
+def load_user(User_id):
+    """Flask-Login memuat user berdasarkan ID"""
+    try:
+        User_id = str(uuid.UUID(User_id))  # Konversi ke string sebelum query
+    except ValueError:
+        return None
+
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT user_id, username FROM pengguna WHERE user_id = %s", (User_id,))  # Sudah string
+    user = cursor.fetchone()
+    cursor.close()
+    db.close()
+
+    return User(user[0], user[1]) if user else None
+
+@app.context_processor
+def inject_user():
+    return dict(current_user=current_user)
 
 @app.route('/Home')
+@login_required
 def home():
-    if 'username' in session:
-        return render_template('Homepage.html', username=session['username'])
-    return redirect(url_for('signin'))
+    return render_template('Homepage.html', username=current_user.username)
 
 @app.route('/Presensi')
+@login_required
 def presensi():
     return render_template('facerecog.html')
 
@@ -43,6 +71,7 @@ def signup():
     return register()
     
 @app.route('/success')
+@login_required
 def success():
     return render_template('Homepage.html')
 

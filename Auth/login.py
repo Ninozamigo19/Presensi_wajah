@@ -1,67 +1,102 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import psycopg2
+import uuid
 from decouple import config
 
 app = Flask(__name__)
-app.secret_key = config('SECRET_KEY', default='36bbfeee4f53a83212bbf8a4984e96101983c4b61c39cc19b0d01fead6332272')
+app.secret_key = config('SECRET_KEY', default='supersecretkey')
 
-# Konfigurasi Database
+# Setup Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'signin'  # Redirect unauthorized users
+
+# Make `current_user` available in all templates
+@app.context_processor
+def inject_user():
+    return dict(current_user=current_user)
+
+# Database connection
 def get_db():
     try:
-        conn = psycopg2.connect(
+        return psycopg2.connect(
             host="localhost",
             database="Presensi_wajah",
             user="postgres",
             password="123"
         )
-        return conn
     except psycopg2.Error as e:
         print(f"Error: {e}")
         return None
 
-# Route Halaman Utama
-@app.route('/')
-def home():
-    user_logged_in = 'username' in session
-    if user_logged_in:
-        return render_template('Homepage.html', username=session['username'], user_logged_in=user_logged_in)
-    return redirect(url_for('loginPage'))
+class User(UserMixin):
+    def __init__(self, user_id, username):
+        self.id = str(user_id)  # Pastikan ID dalam bentuk string
+        self.username = username
 
-# Route Halaman Login
+    def get_id(self):
+        return self.id  # Flask-Login mengharapkan string
+
+@login_manager.user_loader
+def load_user(User_id):
+    """Flask-Login memuat user berdasarkan ID"""
+    try:
+        User_id = str(uuid.UUID(User_id))  # Konversi ke string sebelum query
+    except ValueError:
+        return None
+
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT user_id, username FROM pengguna WHERE user_id = %s", (User_id,))  # Sudah string
+    user = cursor.fetchone()
+    cursor.close()
+    db.close()
+
+    return User(user[0], user[1]) if user else None
+
+
+
+# Login route
 # @app.route('/login', methods=['GET', 'POST'])
 def login():
-    print(f"Request method: {request.method}")
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        print(f"Username: {username}, Password: {password}")
+        Username = request.form['username']
+        Password = request.form['password']
 
         db = get_db()
-        if db:
-            cursor = db.cursor()
-            cursor.execute("SELECT * FROM pengguna WHERE username = %s AND password = %s", (username, password))
-            user = cursor.fetchone()
-            cursor.close()
-            db.close()
+        cursor = db.cursor()
+        cursor.execute("SELECT user_id, username, password FROM pengguna WHERE username = %s", (Username,))
+        user = cursor.fetchone()
+        cursor.close()
+        db.close()
 
-            if user:
-                session['username'] = user[1]
-                flash('Login berhasil!', 'success')
-                return redirect(url_for('home'))
-            else:
-                flash('Username atau password salah.', 'danger')
+        if user and user[2] == Password:  # Ini sebaiknya menggunakan hashing
+            user_obj = User(user[0], user[1])  # `user[0]` adalah UUID
+            login_user(user_obj)
+            flash('Login successful!', 'success')
+            return redirect(url_for('home'))
         else:
-            flash('Koneksi database gagal.', 'danger')
+            flash('Invalid Username or password.', 'danger')
 
     return render_template('login.html')
 
-# Route Logout
-@app.route('/logout')
-def logout():
-    session.pop('username', None)
-    flash('Anda telah logout.', 'info')
-    return redirect(url_for('login'))
 
-# Jalankan Aplikasi
+# Logout route
+@app.route('/logout', methods=['GET', 'POST'])
+@login_required
+def logout():
+    logout_user()
+    flash('You have been logged out.', 'info')
+    return redirect(url_for('signin'))
+
+
+# Home route (protected)
+@app.route('/Home')
+@login_required
+def home():
+    return render_template('Homepage.html', username=current_user.username)  # `current_user` is automatically available in templates
+
+# Run the app
 if __name__ == '__main__':
     app.run(debug=True)
