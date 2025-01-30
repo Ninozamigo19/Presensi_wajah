@@ -34,15 +34,6 @@
             }
         }
 
-        // Log events
-        function logEvent(status) {
-            const logList = document.getElementById("logList");
-            const timestamp = new Date().toLocaleTimeString();
-            const newLog = document.createElement("li");
-            newLog.textContent = `[${timestamp}] Status: ${status}`;
-            logList.prepend(newLog);
-        }
-
         // Check status every 1 second
         setInterval(checkStatus, 1000);
 
