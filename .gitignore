@@ -1,3 +1,4 @@
 .venv/
 Auth/__pycache__/app.cpython-312.pyc
 .env
+Auth/__pycache__/
