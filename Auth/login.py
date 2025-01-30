@@ -11,6 +11,11 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'  # Redirect unauthorized users
 
+# Make `current_user` available in all templates
+@app.context_processor
+def inject_user():
+    return dict(current_user=current_user)
+
 # Database connection
 def get_db():
     try:
@@ -26,25 +31,26 @@ def get_db():
 
 # User class for Flask-Login
 class User(UserMixin):
-    def __init__(self, username):
-        self.username = username
-    
+    def __init__(self, user_id, username):
+        self.id = user_id  # Flask-Login expects `id`
+        self.username = username  # Store username for display
+
     def get_id(self):
-        """Override Flask-Login's default ID retrieval method."""
-        return self.username  # Use username as the unique identifier
+        """Flask-Login uses this to identify users."""
+        return str(self.id)  # Ensure ID is a string
 
 # Load user from DB
 @login_manager.user_loader
-def load_user(username):
-    """Flask-Login loads a user based on their username."""
+def load_user(user_id):
+    """Flask-Login loads a user based on their ID."""
     db = get_db()
     cursor = db.cursor()
-    cursor.execute("SELECT username FROM pengguna WHERE username = %s", (username,))
+    cursor.execute("SELECT id, username FROM pengguna WHERE id = %s", (user_id,))
     user = cursor.fetchone()
     cursor.close()
     db.close()
-    
-    return User(user[0]) if user else None
+
+    return User(user[0], user[1]) if user else None
 
 # Login route
 @app.route('/login', methods=['GET', 'POST'])
@@ -55,13 +61,13 @@ def login():
 
         db = get_db()
         cursor = db.cursor()
-        cursor.execute("SELECT username, password FROM pengguna WHERE username = %s", (username,))
+        cursor.execute("SELECT id, username, password FROM pengguna WHERE username = %s", (username,))
         user = cursor.fetchone()
         cursor.close()
         db.close()
 
-        if user and user[1] == password:  # Compare plain text passwords directly
-            user_obj = User(user[0])  # Create user object with only the username
+        if user and user[2] == password:  # Compare plain text passwords directly (not recommended)
+            user_obj = User(user[0], user[1])  # Pass ID and username
             login_user(user_obj)
             flash('Login successful!', 'success')
             return redirect(url_for('home'))
@@ -82,7 +88,7 @@ def logout():
 @app.route('/')
 @login_required
 def home():
-    return render_template('Homepage.html', username=current_user.username)
+    return render_template('Homepage.html')  # `current_user` is automatically available in templates
 
 # Run the app
 if __name__ == '__main__':
