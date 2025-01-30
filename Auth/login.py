@@ -26,21 +26,25 @@ def get_db():
 
 # User class for Flask-Login
 class User(UserMixin):
-    def __init__(self, id, username):
-        self.id = id
+    def __init__(self, username):
         self.username = username
+    
+    def get_id(self):
+        """Override Flask-Login's default ID retrieval method."""
+        return self.username  # Use username as the unique identifier
 
 # Load user from DB
 @login_manager.user_loader
-def load_user(user_id):
+def load_user(username):
+    """Flask-Login loads a user based on their username."""
     db = get_db()
     cursor = db.cursor()
-    cursor.execute("SELECT id, username FROM pengguna WHERE id = %s", (user_id,))
+    cursor.execute("SELECT username FROM pengguna WHERE username = %s", (username,))
     user = cursor.fetchone()
     cursor.close()
     db.close()
     
-    return User(user[0], user[1]) if user else None
+    return User(user[0]) if user else None
 
 # Login route
 @app.route('/login', methods=['GET', 'POST'])
@@ -51,13 +55,13 @@ def login():
 
         db = get_db()
         cursor = db.cursor()
-        cursor.execute("SELECT id, username, password FROM pengguna WHERE username = %s", (username,))
+        cursor.execute("SELECT username, password FROM pengguna WHERE username = %s", (username,))
         user = cursor.fetchone()
         cursor.close()
         db.close()
 
-        if user and user[2] == password:  # Compare plain text passwords directly
-            user_obj = User(user[0], user[1])
+        if user and user[1] == password:  # Compare plain text passwords directly
+            user_obj = User(user[0])  # Create user object with only the username
             login_user(user_obj)
             flash('Login successful!', 'success')
             return redirect(url_for('home'))
