@@ -1,4 +1,5 @@
 import cv2
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import threading
 from flask import Flask, render_template, Response, jsonify
 from deepface import DeepFace
