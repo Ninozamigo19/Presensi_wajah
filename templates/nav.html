@@ -27,30 +27,44 @@
                     </button>
                 </form>
             {% else %}
-                <!-- Sign Up Button -->
-                <button type="button" class="text-white bg-black hover:bg-gray-700 focus:ring-4 focus:outline-none focus:ring-gray-800 font-medium rounded-lg text-sm px-4 py-2 text-center">
-                    <a href="{{ url_for('signup') }}">Sign Up</a>
-                </button>
+                <!-- Sign Up / Sign In Button (changes based on the current page) -->
+                {% if request.path == url_for('signup') %}
+                    <button type="button" class="text-white bg-black hover:bg-gray-700 focus:ring-4 focus:outline-none focus:ring-gray-800 font-medium rounded-lg text-sm px-4 py-2 text-center">
+                        <a href="{{ url_for('signin') }}">Sign In</a>
+                    </button>
+                {% else %}
+                    <button type="button" class="text-white bg-black hover:bg-gray-700 focus:ring-4 focus:outline-none focus:ring-gray-800 font-medium rounded-lg text-sm px-4 py-2 text-center">
+                        <a href="{{ url_for('signup') }}">Sign Up</a>
+                    </button>
+                {% endif %}
             {% endif %}
         </div>
 
-        <!-- Navigation Links -->
+        <!-- Navigation Links (Only show if authenticated) -->
         <div class="items-center justify-between hidden w-full md:flex md:w-auto md:order-1" id="navbar-sticky">
+            {% if current_user.is_authenticated %}
             <ul class="flex flex-col p-4 md:p-0 mt-4 font-medium border border-gray-700 rounded-lg bg-red-800 md:space-x-8 rtl:space-x-reverse
              md:flex-row md:mt-0 md:border-0 md:bg-red-800">
+                {% if request.path != '/' %}  <!-- Only show the 'Home' link if not on the homepage -->
                 <li>
                     <a href="{{ url_for('home') }}" class="block py-2 px-3 text-white hover:text-black transition duration-200">Home</a>
                 </li>
+                {% endif %}
+                
+                {% if request.path != '/presensi' %}  <!-- Only show the 'Presensi' link if not on the presensi page -->
                 <li>
                     <a href="{{ url_for('presensi') }}" class="block py-2 px-3 text-white hover:text-black transition duration-200">Presensi</a>
                 </li>
+                {% endif %}
+                
                 <li>
-                    <a href="{{ url_for('presensi') }}" class="block py-2 px-3 text-white hover:text-black transition duration-200">Services</a>
+                    <a href="{{ url_for('services') }}" class="block py-2 px-3 text-white hover:text-black transition duration-200">Services</a>
                 </li>
                 <li>
-                    <a href="{{ url_for('presensi') }}" class="block py-2 px-3 text-white hover:text-black transition duration-200">Contact</a>
+                    <a href="{{ url_for('contact') }}" class="block py-2 px-3 text-white hover:text-black transition duration-200">Contact</a>
                 </li>
             </ul>
+            {% endif %}
         </div>
     </div>
 </nav>
