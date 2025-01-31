@@ -111,7 +111,6 @@ def check_face(frame):
             result = DeepFace.verify(frame, ref_img.copy())['verified']
             if result:
                 with lock:
-                    # Cek apakah wajah sudah terdeteksi hari ini
                     if face_already_present_today(img_name):
                         already_present = True
                         face_match = False
@@ -124,17 +123,28 @@ def check_face(frame):
                         if conn:
                             cursor = conn.cursor()
                             try:
-                                today_date = datetime.now().date()
-                                cursor.execute("INSERT INTO face_matches (user_id, tanggal) VALUES (%s, %s)",
-                                               (matched_image, today_date))
+                                now = datetime.now()
+                                today_date = now.date()
+                                check_in_time = now.strftime("%H:%M:%S")
+
+                                # Determine attendance status
+                                if now.time() <= datetime.strptime("07:30:00", "%H:%M:%S").time():
+                                    status = "Present"
+                                else:
+                                    status = "Late"
+
+                                cursor.execute(
+                                    "INSERT INTO face_matches (user_id, tanggal_dan_waktu, status) VALUES (%s, %s, %s)",
+                                    (matched_image, now, status)
+                                )
                                 conn.commit()
-                                print(f"Data tersimpan untuk {matched_image} pada {today_date}")
+                                print(f"Data tersimpan untuk {matched_image} pada {today_date} dengan status {status}")
+
                             except Exception as e:
                                 print(f"Error inserting data into database: {e}")
                             finally:
                                 cursor.close()
                                 conn.close()
-
                     break
         else:
             with lock:
@@ -150,6 +160,7 @@ def check_face(frame):
     finally:
         with lock:
             is_verifying = False
+
 
 # Fungsi untuk menangkap frame kamera
 def generate_frames():
@@ -200,11 +211,11 @@ def home():
         try:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT tanggal_dan_waktu, user_id
+                SELECT tanggal_dan_waktu, user_id, status
                 FROM face_matches
                 WHERE user_id = %s
                 ORDER BY tanggal_dan_waktu DESC
-                """, (current_user.id,))
+            """, (current_user.id,))
             attendance_records = cursor.fetchall()
             cursor.close()
             conn.close()
