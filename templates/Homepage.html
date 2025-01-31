@@ -25,6 +25,8 @@ Home
                     <p class="text-gray-600 text-sm"><strong>Date:</strong> {{ record[0] }}</p>
                     <p class="text-gray-600 text-sm"><strong>Status:</strong> {{ record[2] }}</p>
                 </div>
+                {% else %}
+                    <p>No attendance records found.</p>
                 {% endfor %}
             </div>
             
