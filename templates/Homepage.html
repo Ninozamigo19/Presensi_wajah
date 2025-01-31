@@ -8,48 +8,34 @@ Home
 <body class="bg-gray-300 min-h-screen flex items-center justify-center">
     <div class="container mx-auto p-4">
         <!-- Flex Container -->
-        <div class="flex flex-col gap-8">  <!-- Changed to flex-col to stack boxes vertically -->
+        <div class="flex flex-col gap-8">
             
             <!-- Welcome Box -->
             <div class="bg-blue-500 text-white shadow rounded p-4 border flex-1">
-                <h1 class="text-xl font-bold">Welcome, {{ current_user.username }}!</h1>
+                <h1 class="text-xl font-bold">Halo, {{ current_user.username }}!</h1>
                 <p class="text-sm mt-2">
-                    This is the attendance dashboard. Use the information below to review the attendance records for today.
+                    Selamat datang di halaman beranda. Silahkan lihat informasi dibawah untuk melihat rekap absen.
                 </p>
             </div>
             
-            <!-- Attendance Boxes -->
             <div class="flex flex-col gap-4">
                 
-                <!-- Example Box/Card -->
                 <div class="bg-white shadow rounded p-4 border w-full md:w-72">  <!-- Adjust width to be responsive -->
-                    <h2 class="text-base font-semibold">Alice Johnson</h2>
-                    <p class="text-gray-600 text-sm"><strong>ID:</strong> 001</p>
+                    <h2 class="text-base font-semibold">{{ current_user.username }}</h2>
                     <p class="text-gray-600 text-sm"><strong>Date:</strong> 2024-12-03</p>
                     <p class="text-green-500 text-sm"><strong>Status:</strong> Present</p>
-                    <p class="text-gray-600 text-sm"><strong>Check-in:</strong> 08:05 AM</p>
-                    <p class="text-gray-600 text-sm"><strong>Check-out:</strong> 05:00 PM</p>
-                    <p class="text-gray-500 text-sm"><strong>Remarks:</strong> -</p>
                 </div>
 
-                <!-- Another Example -->
                 <div class="bg-white shadow rounded p-4 border w-full md:w-72">
-                    <h2 class="text-base font-semibold">Bob Smith</h2>
-                    <p class="text-gray-600 text-sm"><strong>ID:</strong> 002</p>
+                    <h2 class="text-base font-semibold">{{ current_user.username }}</h2>
                     <p class="text-gray-600 text-sm"><strong>Date:</strong> 2024-12-03</p>
                     <p class="text-yellow-500 text-sm"><strong>Status:</strong> Late</p>
-                    <p class="text-gray-600 text-sm"><strong>Check-in:</strong> 09:15 AM</p>
-                    <p class="text-gray-600 text-sm"><strong>Check-out:</strong> 05:30 PM</p>
-                    <p class="text-gray-500 text-sm"><strong>Remarks:</strong> Late by 15 minutes</p>
                 </div>
 
-                <!-- Example of Absent -->
                 <div class="bg-white shadow rounded p-4 border w-full md:w-72">
-                    <h2 class="text-base font-semibold">Carol Lee</h2>
-                    <p class="text-gray-600 text-sm"><strong>ID:</strong> 003</p>
+                    <h2 class="text-base font-semibold">{{ current_user.username }}</h2>
                     <p class="text-gray-600 text-sm"><strong>Date:</strong> 2024-12-03</p>
-                    <p class="text-red-500 text-sm"><strong>Status:</strong> Absent</p>
-                    <p class="text-gray-500 text-sm"><strong>Remarks:</strong> On sick leave</p>
+                    <p class="text-yellow-500 text-sm"><strong>Status:</strong> Late</p>
                 </div>
 
             </div>
