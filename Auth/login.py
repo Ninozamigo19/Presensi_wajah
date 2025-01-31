@@ -95,30 +95,25 @@ def logout():
 @app.route('/home')
 @login_required
 def home():
-    # Connect to the database
-    conn = get_db()  # Use get_db instead of create_connection
-    
+    conn = get_db()
     if conn:
         try:
             cursor = conn.cursor()
-            # Query to get attendance records for the logged-in user
             cursor.execute("""
                 SELECT tanggal_dan_waktu, user_id, status
                 FROM face_matches
                 WHERE user_id = %s
                 ORDER BY tanggal_dan_waktu DESC
             """, (current_user.id,))
-            # Fetch attendance records
             attendance_records = cursor.fetchall()
             cursor.close()
             conn.close()
+            print("Fetched attendance records:", attendance_records)  # Debugging
         except Exception as e:
             print(f"Error fetching attendance records: {e}")
-            attendance_records = []  # Empty list if there's an error fetching data
+            attendance_records = []
 
-    # Render the template with attendance records and username
     return render_template('Homepage.html', attendance_records=attendance_records, username=current_user.username)
-
 
 # Run the app
 if __name__ == '__main__':

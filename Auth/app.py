@@ -219,11 +219,12 @@ def home():
             attendance_records = cursor.fetchall()
             cursor.close()
             conn.close()
+            print("Fetched attendance records:", attendance_records)  # Debugging
         except Exception as e:
             print(f"Error fetching attendance records: {e}")
             attendance_records = []
 
-    return render_template('home.html', attendance_records=attendance_records)
+    return render_template('Homepage.html', attendance_records=attendance_records, username=current_user.username)
 
 @app.route('/video_feed')
 def video_feed():
