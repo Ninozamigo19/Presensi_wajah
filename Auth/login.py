@@ -39,23 +39,26 @@ class User(UserMixin):
         return self.id  # Flask-Login mengharapkan string
 
 @login_manager.user_loader
-def load_user(User_id):
+def load_user(user_id):
     """Flask-Login memuat user berdasarkan ID"""
     try:
-        User_id = str(uuid.UUID(User_id))  # Konversi ke string sebelum query
+        user_id = uuid.UUID(user_id)  # Konversi ke UUID sebelum query
     except ValueError:
         return None
 
     db = get_db()
     cursor = db.cursor()
-    cursor.execute("SELECT user_id, username FROM pengguna WHERE user_id = %s", (User_id,))  # Sudah string
+    cursor.execute("SELECT user_id, username FROM pengguna WHERE user_id = %s", (str(user_id),))  # Cast ke string
     user = cursor.fetchone()
     cursor.close()
     db.close()
 
-    return User(user[0], user[1]) if user else None
-
-
+    if user:
+        print(f"✅ User loaded: ID={user[0]}, Username={user[1]}")
+        return User(str(user[0]), user[1])
+    else:
+        print("⚠️ User not found in database!")
+        return None
 
 # Login route
 # @app.route('/login', methods=['GET', 'POST'])
@@ -74,45 +77,51 @@ def login():
         if user and user[2] == Password:  # Ini sebaiknya menggunakan hashing
             user_obj = User(user[0], user[1])  # `user[0]` adalah UUID
             login_user(user_obj)
+            print(f"✅ Login success: User ID={user_obj.id}, Username={user_obj.username}")
             flash('Login successful!', 'success')
             return redirect(url_for('home'))
         else:
+            print("❌ Invalid username or password")
             flash('Invalid Username or password.', 'danger')
 
     return render_template('login.html')
-
 
 # Logout route
 @app.route('/logout', methods=['GET', 'POST'])
 @login_required
 def logout():
+    print(f"👋 Logging out user: {current_user.username} (ID: {current_user.id})")
     logout_user()
     flash('You have been logged out.', 'info')
     return redirect(url_for('signin'))
-
 
 # Home route (protected)
 @app.route('/home')
 @login_required
 def home():
-    conn = get_db()
+    print(f"🏠 Home accessed by: {current_user.username} (ID: {current_user.id})")  # Debugging user login
+
+    # Connect to the database
+    conn = get_db()  # Use get_db instead of create_connection
+    
     if conn:
         try:
             cursor = conn.cursor()
+            # Query to get attendance records for the logged-in user
             cursor.execute("""
-                SELECT tanggal_dan_waktu, user_id, status
-                FROM face_matches
+                SELECT user_id, username, email
+                FROM pengguna
                 WHERE user_id = %s
-                ORDER BY tanggal_dan_waktu DESC
             """, (current_user.id,))
+            # Fetch attendance records
             attendance_records = cursor.fetchall()
             cursor.close()
             conn.close()
-            print("Fetched attendance records:", attendance_records)  # Debugging
         except Exception as e:
-            print(f"Error fetching attendance records: {e}")
-            attendance_records = []
+            print(f"⚠️ Error fetching attendance records: {e}")
+            attendance_records = []  # Empty list if there's an error fetching data
 
+    # Render the template with attendance records and username
     return render_template('Homepage.html', attendance_records=attendance_records, username=current_user.username)
 
 # Run the app

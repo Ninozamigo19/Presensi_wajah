@@ -3,7 +3,7 @@ from decouple import config
 from flask_login import LoginManager, logout_user, login_required, current_user
 import uuid
 
-from Auth.app import generate_frames, face_match, already_present
+from Auth.app import generate_frames, face_match, already_present, create_connection
 from Auth.register import register
 from Auth.login import login , get_db, User
 
@@ -27,21 +27,26 @@ def logout():
 
 
 @login_manager.user_loader
-def load_user(User_id):
+def load_user(user_id):
     """Flask-Login memuat user berdasarkan ID"""
     try:
-        User_id = str(uuid.UUID(User_id))  # Konversi ke string sebelum query
+        user_id = uuid.UUID(user_id)  # Konversi ke UUID sebelum query
     except ValueError:
         return None
 
     db = get_db()
     cursor = db.cursor()
-    cursor.execute("SELECT user_id, username FROM pengguna WHERE user_id = %s", (User_id,))  # Sudah string
+    cursor.execute("SELECT user_id, username FROM pengguna WHERE user_id = %s", (str(user_id),))  # Cast ke string
     user = cursor.fetchone()
     cursor.close()
     db.close()
 
-    return User(user[0], user[1]) if user else None
+    if user:
+        print(f"✅ User loaded: ID={user[0]}, Username={user[1]}")
+        return User(str(user[0]), user[1])
+    else:
+        print("⚠️ User not found in database!")
+        return None
 
 @app.context_processor
 def inject_user():
@@ -50,7 +55,25 @@ def inject_user():
 @app.route('/Home')
 @login_required
 def home():
-    return render_template('Homepage.html', username=current_user.username)
+    conn = create_connection()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT tanggal_dan_waktu, user_id
+                FROM face_matches
+                WHERE user_id = %s
+                ORDER BY tanggal_dan_waktu DESC
+            """, (current_user.id,))
+            attendance_records = cursor.fetchall()
+            cursor.close()
+            conn.close()
+            print("✅ Fetched attendance records:", attendance_records)  # Debugging
+        except Exception as e:
+            print(f"⚠️ Error fetching attendance records: {e}")
+            attendance_records = []
+
+    return render_template('Homepage.html', attendance_records=attendance_records, username=current_user.username)
 
 @app.route('/Presensi')
 @login_required
