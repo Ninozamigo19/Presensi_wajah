@@ -45,13 +45,16 @@
             {% if current_user.is_authenticated %}
             <ul class="flex flex-col p-4 md:p-0 mt-4 font-medium border border-gray-700 rounded-lg bg-red-800 md:space-x-8 rtl:space-x-reverse
              md:flex-row md:mt-0 md:border-0 md:bg-red-800">
-                {% if request.path != '/' %}  <!-- Only show the 'Home' link if not on the homepage -->
+                
+                <!-- Only show the 'Home' link if not on the homepage (case-insensitive, also account for trailing slash) -->
+                {% if request.path.strip('/') != 'home' %}
                 <li>
                     <a href="{{ url_for('home') }}" class="block py-2 px-3 text-white hover:text-black transition duration-200">Home</a>
                 </li>
                 {% endif %}
                 
-                {% if request.path != '/presensi' %}  <!-- Only show the 'Presensi' link if not on the presensi page -->
+                <!-- Only show the 'Presensi' link if not on the presensi page (case-insensitive, also account for trailing slash) -->
+                {% if request.path.strip('/') != 'presensi' %}
                 <li>
                     <a href="{{ url_for('presensi') }}" class="block py-2 px-3 text-white hover:text-black transition duration-200">Presensi</a>
                 </li>
