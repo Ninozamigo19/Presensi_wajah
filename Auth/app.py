@@ -193,8 +193,26 @@ def generate_frames():
     cap.release()
 
 @app.route('/')
-def index():
-    return render_template('index.html')
+@login_required
+def home():
+    conn = create_connection()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT tanggal_dan_waktu, user_id
+                FROM face_matches
+                WHERE user_id = %s
+                ORDER BY tanggal_dan_waktu DESC
+                """, (current_user.id,))
+            attendance_records = cursor.fetchall()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            print(f"Error fetching attendance records: {e}")
+            attendance_records = []
+
+    return render_template('home.html', attendance_records=attendance_records)
 
 @app.route('/video_feed')
 def video_feed():
