@@ -92,10 +92,33 @@ def logout():
 
 
 # Home route (protected)
-@app.route('/Home')
+@app.route('/home')
 @login_required
 def home():
-    return render_template('Homepage.html', username=current_user.username)  # `current_user` is automatically available in templates
+    # Connect to the database
+    conn = get_db()  # Use get_db instead of create_connection
+    
+    if conn:
+        try:
+            cursor = conn.cursor()
+            # Query to get attendance records for the logged-in user
+            cursor.execute("""
+                SELECT tanggal_dan_waktu, user_id, status
+                FROM face_matches
+                WHERE user_id = %s
+                ORDER BY tanggal_dan_waktu DESC
+            """, (current_user.id,))
+            # Fetch attendance records
+            attendance_records = cursor.fetchall()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            print(f"Error fetching attendance records: {e}")
+            attendance_records = []  # Empty list if there's an error fetching data
+
+    # Render the template with attendance records and username
+    return render_template('Homepage.html', attendance_records=attendance_records, username=current_user.username)
+
 
 # Run the app
 if __name__ == '__main__':

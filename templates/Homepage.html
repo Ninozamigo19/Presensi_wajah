@@ -12,7 +12,7 @@ Home
             
             <!-- Welcome Box -->
             <div class="bg-blue-500 text-white shadow rounded p-4 border flex-1">
-                <h1 class="text-xl font-bold">Halo, {{ current_user.username }}!</h1>
+                <h1 class="text-xl font-bold">Halo, {{ username }}!</h1>
                 <p class="text-sm mt-2">
                     Selamat datang di halaman beranda. Silahkan lihat informasi dibawah untuk melihat rekap absen.
                 </p>
@@ -21,9 +21,9 @@ Home
             <div class="flex flex-col gap-4 items-center">
                 {% for record in attendance_records %}
                 <div class="bg-white shadow rounded p-4 border w-full md:w-56">
-                    <h2 class="text-base font-semibold">{{ current_user.username }}</h2>
+                    <h2 class="text-base font-semibold">{{ username }}</h2>
                     <p class="text-gray-600 text-sm"><strong>Date:</strong> {{ record[0] }}</p>
-                    <p class="text-gray-600 text-sm"><strong>Status:</strong> Present</p>
+                    <p class="text-gray-600 text-sm"><strong>Status:</strong> {{ record[2] }}</p>
                 </div>
                 {% endfor %}
             </div>
