@@ -65,6 +65,9 @@ def get_reference_images():
             photo_front = row[1]  # photo_front
             photo_right = row[2]  # photo_right
             photo_left = row[3]  # photo_left
+            print (photo_front)
+            print (photo_right)
+            print (photo_left)
 
             # Proses gambar-gambar (kanan, depan, kiri)
             for subfolder, img_path in {'depan': photo_front, 'kanan': photo_right, 'kiri': photo_left}.items():
