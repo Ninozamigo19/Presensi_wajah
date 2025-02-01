@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, Response, jsonify, make_response
+from flask import Flask, render_template, request, redirect, url_for, flash, session, Response, jsonify
 from decouple import config
 from flask_login import LoginManager, logout_user, login_required, current_user
 import uuid
@@ -12,7 +12,14 @@ app.secret_key=config('SECRET_KEY', default='36bbfeee4f53a83212bbf8a4984e9610198
 
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'signin'  # Redirect unauthorized users
+login_manager.session_protection = "strong"  # Ensures session security
+login_manager.login_view = 'signin'
+
+
+@app.context_processor
+def inject_user():
+    print(f"🔑 current_user: {current_user}")  # Debugging
+    return dict(current_user=current_user)
 
 @app.route('/', methods=['GET', 'POST'])
 def signin():
@@ -22,9 +29,8 @@ def signin():
 @login_required
 def logout():
     logout_user()
-    response = make_response(redirect(url_for('signin')))
-    response.set_cookie('user_id', '', max_age=0)  # Hapus cookie
-    return response
+    flash('You have been logged out.', 'info')
+    return redirect(url_for('signin'))
 
 
 @login_manager.user_loader
@@ -56,33 +62,28 @@ def inject_user():
 @app.route('/Home')
 @login_required
 def home():
-    # ➕ Ambil user_id dari cookie (jika ada)
-    user_id_from_cookie = request.cookies.get('user_id')
-    print(f"🍪 Cookie user_id: {user_id_from_cookie}")
-
-    print(f"🏠 Home accessed by: {current_user.username} (ID: {current_user.id})")  # Debugging user login
-
-    # Connect to the database
-    conn = get_db()  # Use get_db instead of create_connection
+    if not current_user.is_authenticated:
+        flash("You must be logged in to access this page.", "danger")
+        return redirect(url_for('signin'))
     
+    conn = create_connection()
     if conn:
         try:
             cursor = conn.cursor()
-            # Query to get attendance records for the logged-in user
             cursor.execute("""
-                SELECT user_id, username, password
-                FROM pengguna
+                SELECT tanggal_dan_waktu, user_id
+                FROM face_matches
                 WHERE user_id = %s
+                ORDER BY tanggal_dan_waktu DESC
             """, (current_user.id,))
-            # Fetch attendance records
             attendance_records = cursor.fetchall()
             cursor.close()
             conn.close()
+            print("✅ Fetched attendance records:", attendance_records)
         except Exception as e:
             print(f"⚠️ Error fetching attendance records: {e}")
-            attendance_records = []  # Empty list if there's an error fetching data
+            attendance_records = []
 
-    # Render the template with attendance records and username
     return render_template('Homepage.html', attendance_records=attendance_records, username=current_user.username)
 
 @app.route('/Presensi')

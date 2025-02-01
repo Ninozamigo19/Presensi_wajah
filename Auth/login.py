@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, make_response
+from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import psycopg2
 import uuid
@@ -10,7 +10,10 @@ app.secret_key = config('SECRET_KEY', default='supersecretkey')
 # Setup Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'signin'  # Redirect unauthorized users
+login_manager.session_protection = "strong"  # Ensures session security
+login_manager.login_view = 'signin'
+
+
 
 # Make `current_user` available in all templates
 @app.context_processor
@@ -64,26 +67,22 @@ def load_user(user_id):
 # @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+        Username = request.form['username']
+        Password = request.form['password']
 
         db = get_db()
         cursor = db.cursor()
-        cursor.execute("SELECT user_id, username, password FROM pengguna WHERE username = %s", (username,))
+        cursor.execute("SELECT user_id, username, password FROM pengguna WHERE username = %s", (Username,))
         user = cursor.fetchone()
         cursor.close()
         db.close()
 
-        if user and user[2] == password:  # Ini sebaiknya menggunakan hashing
+        if user and user[2] == Password:  # Ini sebaiknya menggunakan hashing
             user_obj = User(user[0], user[1])  # `user[0]` adalah UUID
             login_user(user_obj)
             print(f"✅ Login success: User ID={user_obj.id}, Username={user_obj.username}")
             flash('Login successful!', 'success')
-
-            # ➕ Set Cookie
-            response = make_response(redirect(url_for('home')))
-            response.set_cookie('user_id', str(user_obj.id), max_age=60*60*24, httponly=True)
-            return response
+            return redirect(url_for('home'))
         else:
             print("❌ Invalid username or password")
             flash('Invalid Username or password.', 'danger')
@@ -97,20 +96,12 @@ def logout():
     print(f"👋 Logging out user: {current_user.username} (ID: {current_user.id})")
     logout_user()
     flash('You have been logged out.', 'info')
-
-    # ➖ Hapus Cookie
-    response = make_response(redirect(url_for('signin')))
-    response.set_cookie('user_id', '', max_age=0)  # Set max_age=0 untuk menghapus cookie
-    return response
+    return redirect(url_for('signin'))
 
 # Home route (protected)
 @app.route('/home')
 @login_required
 def home():
-    # ➕ Ambil user_id dari cookie (jika ada)
-    user_id_from_cookie = request.cookies.get('user_id')
-    print(f"🍪 Cookie user_id: {user_id_from_cookie}")
-
     print(f"🏠 Home accessed by: {current_user.username} (ID: {current_user.id})")  # Debugging user login
 
     # Connect to the database
