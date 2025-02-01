@@ -10,7 +10,10 @@ app.secret_key = config('SECRET_KEY', default='supersecretkey')
 # Setup Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'signin'  # Redirect unauthorized users
+login_manager.session_protection = "strong"  # Ensures session security
+login_manager.login_view = 'signin'
+
+
 
 # Make `current_user` available in all templates
 @app.context_processor

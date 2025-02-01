@@ -1,10 +1,10 @@
 import cv2
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from flask import Flask, render_template, Response, jsonify, redirect, url_for, flash, request, make_response, session, has_request_context
 import threading
-from flask import Flask, render_template, Response, jsonify, redirect, url_for, flash
 from deepface import DeepFace
 import psycopg2
-from datetime import datetime
+from datetime import datetime, timedelta
 from decouple import config
 import numpy as np
 import os
@@ -12,11 +12,21 @@ from werkzeug.security import check_password_hash
 
 app = Flask(__name__)
 app.secret_key = config('SECRET_KEY')
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Session duration
+app.config['SESSION_COOKIE_NAME'] = 'user_session_cookie'
+app.config['SESSION_PERMANENT'] = True
+app.config['SESSION_TYPE'] = 'filesystem'
 
 # Flask-Login setup
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = "signin"
+login_manager.session_protection = "strong"  # Ensures session security
+login_manager.login_view = 'signin'
+
+
+@app.context_processor
+def inject_user():
+    return dict(current_user=current_user)
 
 counter = 0
 face_match = False
@@ -45,11 +55,10 @@ class User(UserMixin):
     def __init__(self, user_id, username, password):
         self.id = user_id
         self.username = username
-        self.password = password  # ⚠️ Jangan gunakan plaintext password di produksi
+        self.password = password
 
     @staticmethod
     def get(user_id):
-        """Mengambil user berdasarkan ID"""
         conn = create_connection()
         if not conn:
             return None
@@ -66,7 +75,6 @@ class User(UserMixin):
 
     @staticmethod
     def get_by_username(username):
-        """Mengambil user berdasarkan username"""
         conn = create_connection()
         if not conn:
             return None
@@ -83,7 +91,7 @@ class User(UserMixin):
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.get(user_id)  # Memuat user berdasarkan ID
+    return User.get(user_id)
 
 # Fungsi untuk memuat gambar
 def load_image(path_or_url, subfolder=None):
@@ -98,41 +106,34 @@ def load_image(path_or_url, subfolder=None):
     return img
 
 # Fungsi mengambil referensi gambar pengguna yang login
-def get_reference_images():
-    print(f"🟢 Debug: current_user = {current_user}")
-    print(f"🟢 Debug: current_user.is_authenticated = {current_user.is_authenticated if current_user else 'None'}")
-
-    if not current_user or not hasattr(current_user, "id") or not current_user.is_authenticated:
-        print("⚠️ Error: current_user tidak tersedia atau belum login!")
+def get_reference_images(user):
+    if not user or not hasattr(user, "id") or not user.is_authenticated:
+        print("⚠️ Error: User not authenticated or missing ID!")
         return []
 
-    conn = create_connection()
-    print(f"✅ Mengambil referensi gambar untuk user_id: {current_user.id}")
+    print(f"✅ Debug: user.id={user.id}")
 
+    conn = create_connection()
     cursor = conn.cursor()
     cursor.execute("""
         SELECT user_id, photo_front, photo_right, photo_left 
         FROM pengguna 
         WHERE user_id = %s
-    """, (current_user.id,))
-
+    """, (user.id,))
+    
     rows = cursor.fetchall()
+    print(f"✅ Debug: Database rows fetched: {rows}")
+
     reference_imgs = []
 
     for row in rows:
         user_id, photo_front, photo_right, photo_left = row
-        print(f"📷 Gambar ditemukan untuk user_id {user_id}:")
-        print(f"   - Depan: {photo_front}")
-        print(f"   - Kanan: {photo_right}")
-        print(f"   - Kiri: {photo_left}")
-
+        print(f"✅ Debug: Processing user_id={user_id}")
         for subfolder, img_path in {'depan': photo_front, 'kanan': photo_right, 'kiri': photo_left}.items():
             if img_path:
                 img = load_image(img_path, subfolder=subfolder)
                 if img is not None:
                     reference_imgs.append((user_id, img))
-                else:
-                    print(f"❌ Gagal membaca gambar {subfolder} untuk user_id {user_id}: {img_path}")
 
     cursor.close()
     conn.close()
@@ -165,11 +166,8 @@ def check_face(frame):
             if ref_img is None:
                 continue
 
-            print(f"🔍 Memeriksa wajah dengan referensi user_id: {img_name}")
-
             result = DeepFace.verify(frame, ref_img.copy())
-            print(f"🔍 DeepFace result: {result}")
-            if result['verified'] and img_name == current_user.id:  # Pastikan wajah sesuai dengan pengguna yang login
+            if result['verified'] and img_name == current_user.id:
                 with lock:
                     if face_already_present_today(img_name):
                         already_present = True
@@ -178,7 +176,6 @@ def check_face(frame):
                         face_match = True
                         matched_image = img_name
                         already_present = False
-
                         conn = create_connection()
                         if conn:
                             cursor = conn.cursor()
@@ -190,7 +187,6 @@ def check_face(frame):
                                     (matched_image, now, status)
                                 )
                                 conn.commit()
-                                print(f"✅ Absensi disimpan untuk user_id: {matched_image}, waktu: {now}, status: {status}")
                             except Exception as e:
                                 print(f"⚠️ Error inserting data into database: {e}")
                             finally:
@@ -203,7 +199,6 @@ def check_face(frame):
                 matched_image = None
                 already_present = False
     except ValueError as e:
-        print(f"⚠️ Error during face verification: {e}")
         with lock:
             face_match = False
             matched_image = None
@@ -253,6 +248,27 @@ def generate_frames():
 
     cap.release()
 
+@app.route('/login', methods=['POST'])
+def login():
+    user = User.get_by_username(request.form['username'])
+    if user and check_password_hash(user.password, request.form['password']):
+        login_user(user)
+        session.permanent = True  # Make session permanent
+        resp = make_response(redirect(url_for('home')))
+        resp.set_cookie('user_id', str(user.id))  # Set cookie for user_id
+        return resp
+    else:
+        flash('Invalid username or password', 'danger')
+        return redirect(url_for('signin'))
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    resp = make_response(redirect(url_for('signin')))
+    resp.delete_cookie('user_id')  # Delete cookie when logging out
+    return resp
+
 @app.route('/')
 @login_required
 def home():
@@ -268,11 +284,9 @@ def home():
             attendance_records = cursor.fetchall()
             cursor.close()
             conn.close()
-            print("✅ Fetched attendance records:", attendance_records)  # Debugging
         except Exception as e:
             print(f"⚠️ Error fetching attendance records: {e}")
             attendance_records = []
-
     return render_template('Homepage.html', attendance_records=attendance_records, username=current_user.username)
 
 @app.route('/video_feed')
@@ -280,10 +294,16 @@ def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/status')
+@login_required
 def status():
     global face_match, already_present
     return jsonify({"detected": face_match, "already_present": already_present})
 
+@app.route('/some_route')
+@login_required
+def some_view():
+    reference_images = get_reference_images(current_user)
+    return jsonify({"status": "success", "images_found": len(reference_images)})
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -12,7 +12,14 @@ app.secret_key=config('SECRET_KEY', default='36bbfeee4f53a83212bbf8a4984e9610198
 
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'signin'  # Redirect unauthorized users
+login_manager.session_protection = "strong"  # Ensures session security
+login_manager.login_view = 'signin'
+
+
+@app.context_processor
+def inject_user():
+    print(f"🔑 current_user: {current_user}")  # Debugging
+    return dict(current_user=current_user)
 
 @app.route('/', methods=['GET', 'POST'])
 def signin():
@@ -55,6 +62,10 @@ def inject_user():
 @app.route('/Home')
 @login_required
 def home():
+    if not current_user.is_authenticated:
+        flash("You must be logged in to access this page.", "danger")
+        return redirect(url_for('signin'))
+    
     conn = create_connection()
     if conn:
         try:
@@ -68,7 +79,7 @@ def home():
             attendance_records = cursor.fetchall()
             cursor.close()
             conn.close()
-            print("✅ Fetched attendance records:", attendance_records)  # Debugging
+            print("✅ Fetched attendance records:", attendance_records)
         except Exception as e:
             print(f"⚠️ Error fetching attendance records: {e}")
             attendance_records = []
