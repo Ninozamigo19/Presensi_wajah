@@ -1,6 +1,6 @@
 import cv2
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
-from flask import Flask, render_template, Response, jsonify, redirect, url_for, flash, request, make_response, session, has_request_context
+from flask import Flask, render_template, Response, jsonify, redirect, url_for, flash, request, make_response, session, current_app
 import threading
 from deepface import DeepFace
 import psycopg2
@@ -108,10 +108,8 @@ def load_image(path_or_url, subfolder=None):
 # Fungsi mengambil referensi gambar pengguna yang login
 def get_reference_images(user):
     if not user or not hasattr(user, "id") or not user.is_authenticated:
-        print("⚠️ Error: User not authenticated or missing ID!")
+        print("⚠️ Error: current_user tidak tersedia atau belum login!")
         return []
-
-    print(f"✅ Debug: user.id={user.id}")
 
     conn = create_connection()
     cursor = conn.cursor()
@@ -120,20 +118,21 @@ def get_reference_images(user):
         FROM pengguna 
         WHERE user_id = %s
     """, (user.id,))
-    
     rows = cursor.fetchall()
-    print(f"✅ Debug: Database rows fetched: {rows}")
-
     reference_imgs = []
+
+    print(f"Rows fetched for user {user.id}: {rows}")  # Debugging line
 
     for row in rows:
         user_id, photo_front, photo_right, photo_left = row
-        print(f"✅ Debug: Processing user_id={user_id}")
         for subfolder, img_path in {'depan': photo_front, 'kanan': photo_right, 'kiri': photo_left}.items():
             if img_path:
                 img = load_image(img_path, subfolder=subfolder)
                 if img is not None:
+                    print(f"Reference image loaded: {img_path}")  # Debugging line
                     reference_imgs.append((user_id, img))
+                else:
+                    print(f"⚠️ Failed to load reference image from {img_path}")  # Debugging line
 
     cursor.close()
     conn.close()
@@ -157,18 +156,24 @@ def face_already_present_today(matched_image):
     return False
 
 # Fungsi memeriksa kecocokan wajah dengan akun yang login
-def check_face(frame):
+def check_face(frame, user):
     global face_match, matched_image, already_present, is_verifying
-    reference_imgs = get_reference_images(current_user)
-    
+
+    reference_imgs = get_reference_images(user=user)  # Get reference images of the logged-in user
+
     try:
         for img_name, ref_img in reference_imgs:
             if ref_img is None:
+                print("⚠️ Reference image is None!")
                 continue
 
+            print(f"Verifying face for user: {img_name}")  # Debugging line
             result = DeepFace.verify(frame, ref_img.copy())
-            if result['verified'] and img_name == current_user.id:
+            print(f"DeepFace result: {result}")  # Debugging line
+
+            if result['verified'] and img_name == user.id:
                 with lock:
+                    print("Face match found!")
                     if face_already_present_today(img_name):
                         already_present = True
                         face_match = False
@@ -192,7 +197,7 @@ def check_face(frame):
                             finally:
                                 cursor.close()
                                 conn.close()
-                    break
+                break
         else:
             with lock:
                 face_match = False
@@ -222,10 +227,17 @@ def generate_frames():
         else:
             frame = cv2.flip(frame, 1)
 
+            # Every 30 frames, start the face verification thread
             if counter % 30 == 0 and not is_verifying:
                 with lock:
                     is_verifying = True
-                threading.Thread(target=check_face, args=(frame.copy(),)).start()
+                
+                # Push app context manually
+                def thread_task():
+                    with current_app.app_context():
+                        check_face(frame.copy(), current_user)
+
+                threading.Thread(target=thread_task).start()
 
             # Tampilkan hasil verifikasi
             with lock:
@@ -247,7 +259,7 @@ def generate_frames():
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
     cap.release()
-
+    
 @app.route('/login', methods=['POST'])
 def login():
     user = User.get_by_username(request.form['username'])
@@ -302,7 +314,7 @@ def status():
 @app.route('/some_route')
 @login_required
 def some_view():
-    reference_images = get_reference_images(current_user)
+    reference_images = get_reference_images(user=current_user)
     return jsonify({"status": "success", "images_found": len(reference_images)})
 
 if __name__ == "__main__":
