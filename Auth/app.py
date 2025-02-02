@@ -212,8 +212,12 @@ def check_face(frame, user):
         with lock:
             is_verifying = False
 
+
 # Fungsi untuk menangkap frame kamera
-def generate_frames():
+def generate_frames(user_id):
+    if not user_id :
+        print ("⚠️ Tidak ada user yang login!")
+        return
     global counter, face_match, matched_image, already_present, is_verifying
 
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
@@ -227,17 +231,25 @@ def generate_frames():
         else:
             frame = cv2.flip(frame, 1)
 
-            # Every 30 frames, start the face verification thread
             if counter % 30 == 0 and not is_verifying:
                 with lock:
                     is_verifying = True
-                
-                # Push app context manually
-                def thread_task():
-                    with current_app.app_context():
-                        check_face(frame.copy(), current_user)
 
-                threading.Thread(target=thread_task).start()
+                # Ambil user_id dari session
+                user_id = session.get('user_id')
+                if not user_id:
+                    print("⚠️ Tidak ada user yang login!")
+                    continue
+
+                def thread_task(frame, user_id):
+                    with app.app_context():  # Aktifkan app context
+                        user = User.get(user_id)  # Ambil user dari database
+                        if user:
+                            check_face(frame.copy(), user)
+                        else:
+                            print("⚠️ User tidak ditemukan di database.")
+
+                threading.Thread(target=thread_task, args=(frame.copy(), user_id)).start()
 
             # Tampilkan hasil verifikasi
             with lock:
@@ -254,11 +266,11 @@ def generate_frames():
             ret, buffer = cv2.imencode('.jpg', frame)
             frame = buffer.tobytes()
 
-            # Kirim frame sebagai respon byte stream
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
     cap.release()
+
     
 @app.route('/login', methods=['POST'])
 def login():
@@ -302,8 +314,10 @@ def home():
     return render_template('Homepage.html', attendance_records=attendance_records, username=current_user.username)
 
 @app.route('/video_feed')
+@login_required
 def video_feed():
-    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    user_id = current_user.id  # Ambil user_id sebelum keluar dari request
+    return Response(generate_frames(user_id), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/status')
 @login_required

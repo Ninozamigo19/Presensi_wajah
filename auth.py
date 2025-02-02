@@ -3,7 +3,7 @@ from decouple import config
 from flask_login import LoginManager, logout_user, login_required, current_user
 import uuid
 
-from Auth.app import generate_frames, face_match, already_present, create_connection
+from Auth.app import generate_frames, face_match, already_present, create_connection, app
 from Auth.register import register
 from Auth.login import login , get_db, User
 
@@ -92,8 +92,10 @@ def presensi():
     return render_template('facerecog.html')
 
 @app.route('/video_feed')
+@login_required
 def video_feed():
-    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    user_id = current_user.id  # Ambil user_id sebelum keluar dari request
+    return Response(generate_frames(user_id), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/status')
 def status():
