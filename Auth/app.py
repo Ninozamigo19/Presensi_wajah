@@ -55,7 +55,7 @@ class User(UserMixin):
     @staticmethod
     def get_by_username(username):
         """Fetch user based on username"""
-        conn = get_db()  # Use get_db() instead of psycopg2.connect()
+        conn = get_db()
         if not conn:
             return None
 
@@ -73,12 +73,10 @@ class User(UserMixin):
 def load_user(user_id):
     return User.get(user_id)
 
-# Route Login dengan Cookie
 @app.route('/', methods=['GET', 'POST'])
 def signin():
-    return login()  # Simply call the login function from login.py
+    return login()
 
-# Route Logout dengan Menghapus Cookie
 @app.route('/logout')
 @login_required
 def logout():
@@ -88,7 +86,6 @@ def logout():
     flash('You have been logged out.', 'info')
     return response
 
-# Fungsi mengambil referensi gambar pengguna yang login
 def get_reference_images(user_id):
     """Fetches the front image filename from the database for face matching."""
     conn = get_db()
@@ -97,9 +94,8 @@ def get_reference_images(user_id):
 
     try:
         cursor = conn.cursor()
-        # Assume the column storing the front image filename is named 'depan'
         cursor.execute("SELECT photo_front FROM pengguna WHERE user_id = %s", (user_id,))
-        reference_imgs = cursor.fetchall()  # Each row is a one-element tuple
+        reference_imgs = cursor.fetchall()
         return reference_imgs
     finally:
         cursor.close()

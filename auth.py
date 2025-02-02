@@ -70,8 +70,8 @@ def home():
             cursor = conn.cursor()
             # Query to get attendance records for the logged-in user
             cursor.execute("""
-                SELECT user_id, username, password
-                FROM pengguna
+                SELECT tanggal_dan_waktu, status
+                FROM face_matches
                 WHERE user_id = %s
             """, (current_user.id,))
             # Fetch attendance records
