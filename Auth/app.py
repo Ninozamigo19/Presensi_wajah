@@ -134,8 +134,8 @@ def run_check_face(frame, user_id):
     threading.Thread(target=check_face, args=(frame, user_id), daemon=True).start()
 
 # Function to check if a face matches and update the state
-def check_face(frame, user_id):
-    """Compares captured face with stored images and records attendance."""
+def check_face(frame, user_id, max_attempts=3):
+    """Compares captured face with stored images and records attendance, retrying if no match is found."""
     global face_match, matched_image, already_present, is_verifying
 
     if not user_id:
@@ -145,57 +145,61 @@ def check_face(frame, user_id):
     reference_imgs = get_reference_images(user_id)
     print(f"✅ Found {len(reference_imgs)} reference images for user {user_id}")
 
-    for (ref_img,) in reference_imgs:
-        if not ref_img:
-            print("❌ Reference image is None, skipping")
-            continue
+    attempts = 0
+    while attempts < max_attempts:
+        for (ref_img,) in reference_imgs:
+            if not ref_img:
+                print("❌ Reference image is None, skipping")
+                continue
 
-        try:
-            # Debugging: Show image path or data format
-            print(f"🔍 Verifying face with image: {ref_img}")
+            try:
+                # Load image from assets folder
+                ref_img_path = os.path.join("assets/images/depan", ref_img)  
+                print(f"🔍 Attempt {attempts+1}: Verifying face with image: {ref_img_path}")
 
-            result = DeepFace.verify(frame, ref_img, enforce_detection=False)
-            print(f"✅ DeepFace result: {result}")
+                result = DeepFace.verify(frame, ref_img_path, enforce_detection=False)
+                print(f"✅ DeepFace result: {result}")
 
-            if result['verified']:
-                with lock:
-                    if face_already_present_today(user_id):
-                        already_present = True
-                        face_match = False
-                    else:
-                        face_match = True
-                        matched_image = user_id
-                        already_present = False
+                if result['verified']:
+                    with lock:
+                        if face_already_present_today(user_id):
+                            already_present = True
+                            face_match = False
+                        else:
+                            face_match = True
+                            matched_image = user_id
+                            already_present = False
 
-                        # Record the face match in the database
-                        conn = get_db()
-                        if conn:
-                            try:
-                                cursor = conn.cursor()
-                                now = datetime.now()
-                                status = "Present" if now.time() <= datetime.strptime("07:30:00", "%H:%M:%S").time() else "Late"
-                                cursor.execute(
-                                    "INSERT INTO face_matches (user_id, tanggal_dan_waktu, status) VALUES (%s, %s, %s)",
-                                    (matched_image, now, status)
-                                )
-                                conn.commit()
-                                print("✅ Attendance recorded in database.")
-                            except Exception as e:
-                                print(f"⚠️ Database error: {e}")
-                            finally:
-                                cursor.close()
-                                conn.close()
-                break
-        except Exception as e:
-            print(f"⚠️ DeepFace verification failed: {e}")
-            continue
+                            # Record the face match in the database
+                            conn = get_db()
+                            if conn:
+                                try:
+                                    cursor = conn.cursor()
+                                    now = datetime.now()
+                                    status = "Present" if now.time() <= datetime.strptime("07:30:00", "%H:%M:%S").time() else "Late"
+                                    cursor.execute(
+                                        "INSERT INTO face_matches (user_id, tanggal_dan_waktu, status) VALUES (%s, %s, %s)",
+                                        (matched_image, now, status)
+                                    )
+                                    conn.commit()
+                                    print("✅ Attendance recorded in database.")
+                                except Exception as e:
+                                    print(f"⚠️ Database error: {e}")
+                                finally:
+                                    cursor.close()
+                                    conn.close()
+                    return  # Stop scanning once a match is found
+            except Exception as e:
+                print(f"⚠️ DeepFace verification failed: {e}")
 
-    # If no match was found, reset status
+        attempts += 1
+        print(f"🔄 Retrying... ({attempts}/{max_attempts})")
+
+    print("❌ No match found after multiple attempts.")
     with lock:
-        if not face_match:
-            face_match = False
-            matched_image = None
-            already_present = False
+        face_match = False
+        matched_image = None
+        already_present = False
             
 # Fungsi menangkap frame kamera
 # Function to capture frames from the camera and process them
