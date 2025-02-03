@@ -18,12 +18,12 @@ Home
                 </p>
             </div>
             
-            <div class="flex flex-col gap-4 items-center">
+            <div class="flex flex-wrap justify-center gap-4">
                 {% for record in attendance_records %}
-                <div class="bg-white shadow rounded p-4 border w-full md:w-56">
+                <div class="bg-white shadow rounded p-4 border w-48">
                     <h2 class="text-base font-semibold">{{ username }}</h2>
-                    <p class="text-gray-600 text-sm"><strong>Date:</strong> {{ record[0] }}</p>
-                    <p class="text-gray-600 text-sm"><strong>Status:</strong> {{ record[2] }}</p>
+                    <p class="text-gray-600 text-sm"><strong>Tanggal & Waktu:</strong> {{ record[0] }}</p>
+                    <p class="text-gray-600 text-sm"><strong>Status:</strong> {{ record[1] }}</p>
                 </div>
                 {% else %}
                     <p>No attendance records found.</p>
