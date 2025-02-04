@@ -12,14 +12,7 @@ app.secret_key=config('SECRET_KEY', default='36bbfeee4f53a83212bbf8a4984e9610198
 
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.session_protection = "strong"  # Ensures session security
-login_manager.login_view = 'signin'
-
-
-@app.context_processor
-def inject_user():
-    print(f"🔑 current_user: {current_user}")  # Debugging
-    return dict(current_user=current_user)
+login_manager.login_view = 'signin'  # Redirect unauthorized users
 
 @app.route('/', methods=['GET', 'POST'])
 def signin():

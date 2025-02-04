@@ -1,18 +1,19 @@
 import cv2
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import threading
-from flask import Flask, render_template, Response, jsonify, redirect, url_for, flash, request, make_response, copy_current_request_context
+from flask import Flask, render_template, Response, jsonify, redirect, url_for, flash, request, make_response, session
 from deepface import DeepFace
 import psycopg2
 from datetime import datetime, timedelta
 from decouple import config
 import numpy as np
-from Auth.login import current_user
+from Auth.login import current_user, login, get_db
 import os
+import secrets
 from werkzeug.security import check_password_hash
 
 app = Flask(__name__)
-app.secret_key = config('SECRET_KEY', default='supersecretkey')
+app.secret_key = config('SECRET_KEY', default='36bbfeee4f53a83212bbf8a4984e96101983c4b61c39cc19b0d01fead6332272')
 
 # Flask-Login setup
 login_manager = LoginManager()
@@ -27,20 +28,6 @@ matched_image = None
 lock = threading.Lock()
 is_verifying = False
 
-# Fungsi koneksi ke PostgreSQL
-def create_connection():
-    try:
-        connection = psycopg2.connect(
-            host="localhost",
-            database="Presensi_wajah",
-            user="postgres",
-            password="123"
-        )
-        return connection
-    except Exception as e:
-        print(f"⚠️ Error connecting to database: {e}")
-        return None
-
 # Model User
 class User(UserMixin):
     def __init__(self, user_id, username, password):
@@ -50,8 +37,8 @@ class User(UserMixin):
 
     @staticmethod
     def get(user_id):
-        """Mengambil user berdasarkan ID"""
-        conn = create_connection()
+        """Fetch user based on user_id"""
+        conn = get_db()  # Use get_db() instead of psycopg2.connect()
         if not conn:
             return None
 
@@ -67,8 +54,8 @@ class User(UserMixin):
 
     @staticmethod
     def get_by_username(username):
-        """Mengambil user berdasarkan username"""
-        conn = create_connection()
+        """Fetch user based on username"""
+        conn = get_db()
         if not conn:
             return None
 
@@ -86,28 +73,10 @@ class User(UserMixin):
 def load_user(user_id):
     return User.get(user_id)
 
-# Route Login dengan Cookie
-@app.route('/signin', methods=['GET', 'POST'])
+@app.route('/', methods=['GET', 'POST'])
 def signin():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        remember_me = request.form.get('remember')
+    return login()
 
-        user = User.get_by_username(username)
-        if user and check_password_hash(user.password, password):  # Gunakan hashing
-            login_user(user, remember=True)
-
-            response = make_response(redirect(url_for('home')))
-            if remember_me:
-                response.set_cookie('user_id', user.id, max_age=timedelta(days=7))
-            return response
-        else:
-            flash('Invalid Username or Password', 'danger')
-
-    return render_template('login.html')
-
-# Route Logout dengan Menghapus Cookie
 @app.route('/logout')
 @login_required
 def logout():
@@ -117,100 +86,120 @@ def logout():
     flash('You have been logged out.', 'info')
     return response
 
-# Fungsi mengambil referensi gambar pengguna yang login
-def get_reference_images():
-    if current_user is None :
+def get_reference_images(user_id):
+    """Fetches the front image filename from the database for face matching."""
+    conn = get_db()
+    if not conn:
         return []
-    conn = create_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT user_id, photo_front, photo_right, photo_left 
-        FROM pengguna 
-        WHERE user_id = %s
-    """, (current_user.id,))
 
-    rows = cursor.fetchall()
-    reference_imgs = []
-
-    for row in rows:
-        user_id, photo_front, photo_right, photo_left = row
-
-        for img_path in [photo_front, photo_right, photo_left]:
-            print (photo_front)
-            print (photo_right)
-            print (photo_left)
-            if img_path:
-                img = cv2.imread(os.path.join("assets/images", img_path))
-                if img is not None:
-                    reference_imgs.append((user_id, img))
-
-    cursor.close()
-    conn.close()
-    return reference_imgs
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT photo_front FROM pengguna WHERE user_id = %s", (user_id,))
+        reference_imgs = cursor.fetchall()
+        return reference_imgs
+    finally:
+        cursor.close()
+        conn.close()
 
 # Fungsi untuk mengecek apakah wajah sudah terdeteksi hari ini
-def face_already_present_today(matched_image):
-    conn = create_connection()
-    if conn:
-        try:
-            cursor = conn.cursor()
-            today_date = datetime.now().date()
-            cursor.execute('''SELECT COUNT(*) FROM face_matches WHERE user_id = %s AND DATE(tanggal_dan_waktu) = %s''',
-                           (matched_image, today_date))
-            result = cursor.fetchone()[0]
-            cursor.close()
-            conn.close()
-            return result > 0
-        except Exception as e:
-            print(f"⚠️ Error checking face presence in database: {e}")
-    return False
+def face_already_present_today(user_id):
+    """Checks if the user has already been marked present today."""
+    conn = get_db()
+    if not conn:
+        return False
+
+    try:
+        cursor = conn.cursor()
+        today = datetime.now().date()
+        cursor.execute(
+            "SELECT COUNT(*) FROM face_matches WHERE user_id = %s AND DATE(tanggal_dan_waktu) = %s",
+            (user_id, today)
+        )
+        count = cursor.fetchone()[0]
+        return count > 0
+    finally:
+        cursor.close()
+        conn.close()
+        
+def get_user_id_from_token():
+    return current_user.id if current_user.is_authenticated else None
 
 # Perbaikan Threading untuk Face Recognition
-def run_check_face(frame):
-    with app.app_context():
-        check_face(frame)
+def run_check_face(frame, user_id):
+    """Starts face verification, passing user_id explicitly."""
+    threading.Thread(target=check_face, args=(frame, user_id), daemon=True).start()
 
-def check_face(frame):
-    with app.app_context():
-        global face_match, matched_image, already_present, is_verifying
-        reference_imgs = get_reference_images()
-        
-        for img_name, ref_img in reference_imgs:
-            if ref_img is None:
+# Function to check if a face matches and update the state
+def check_face(frame, user_id, max_attempts=3):
+    """Compares captured face with stored images and records attendance, retrying if no match is found."""
+    global face_match, matched_image, already_present, is_verifying
+
+    if not user_id:
+        print("⚠️ No user_id provided!")
+        return
+
+    reference_imgs = get_reference_images(user_id)
+    print(f"✅ Found {len(reference_imgs)} reference images for user {user_id}")
+
+    attempts = 0
+    while attempts < max_attempts:
+        for (ref_img,) in reference_imgs:
+            if not ref_img:
+                print("❌ Reference image is None, skipping")
                 continue
 
-            result = DeepFace.verify(frame, ref_img.copy())
-            if result['verified'] and img_name == current_user.id:
-                with lock:
-                    if face_already_present_today(img_name):
-                        already_present = True
-                        face_match = False
-                    else:
-                        face_match = True
-                        matched_image = img_name
-                        already_present = False
+            try:
+                # Load image from assets folder
+                ref_img_path = os.path.join("assets/images/depan", ref_img)  
+                print(f"🔍 Attempt {attempts+1}: Verifying face with image: {ref_img_path}")
 
-                        conn = create_connection()
-                        if conn:
-                            cursor = conn.cursor()
-                            now = datetime.now()
-                            status = "Present" if now.time() <= datetime.strptime("07:30:00", "%H:%M:%S").time() else "Late"
-                            cursor.execute(
-                                "INSERT INTO face_matches (user_id, tanggal_dan_waktu, status) VALUES (%s, %s, %s)",
-                                (matched_image, now, status)
-                            )
-                            conn.commit()
-                            cursor.close()
-                            conn.close()
-                break
-        else:
-            with lock:
-                face_match = False
-                matched_image = None
-                already_present = False
+                result = DeepFace.verify(frame, ref_img_path, enforce_detection=False)
+                print(f"✅ DeepFace result: {result}")
 
+                if result['verified']:
+                    with lock:
+                        if face_already_present_today(user_id):
+                            already_present = True
+                            face_match = False
+                        else:
+                            face_match = True
+                            matched_image = user_id
+                            already_present = False
+
+                            # Record the face match in the database
+                            conn = get_db()
+                            if conn:
+                                try:
+                                    cursor = conn.cursor()
+                                    now = datetime.now()
+                                    status = "Present" if now.time() <= datetime.strptime("07:30:00", "%H:%M:%S").time() else "Late"
+                                    cursor.execute(
+                                        "INSERT INTO face_matches (user_id, tanggal_dan_waktu, status) VALUES (%s, %s, %s)",
+                                        (matched_image, now, status)
+                                    )
+                                    conn.commit()
+                                    print("✅ Attendance recorded in database.")
+                                except Exception as e:
+                                    print(f"⚠️ Database error: {e}")
+                                finally:
+                                    cursor.close()
+                                    conn.close()
+                    return  # Stop scanning once a match is found
+            except Exception as e:
+                print(f"⚠️ DeepFace verification failed: {e}")
+
+        attempts += 1
+        print(f"🔄 Retrying... ({attempts}/{max_attempts})")
+
+    print("❌ No match found after multiple attempts.")
+    with lock:
+        face_match = False
+        matched_image = None
+        already_present = False
+            
 # Fungsi menangkap frame kamera
-def generate_frames():
+# Function to capture frames from the camera and process them
+def generate_frames(user_id):
     global counter, face_match, matched_image, already_present, is_verifying
 
     cap = cv2.VideoCapture(0)
@@ -224,12 +213,12 @@ def generate_frames():
         else:
             frame = cv2.flip(frame, 1)
 
+            # Limit frame processing to once every 30 frames
             if counter % 30 == 0 and not is_verifying:
                 with lock:
                     is_verifying = True
-                threading.Thread(target=run_check_face, args=(frame.copy(),)).start()
+                threading.Thread(target=run_check_face, args=(frame.copy(), user_id), daemon=True).start()
 
-                 # Tampilkan hasil verifikasi
             with lock:
                 if already_present:
                     cv2.putText(frame, "        SUDAH ABSEN!", (20, 450), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
@@ -254,7 +243,14 @@ def home():
 
 @app.route('/video_feed')
 def video_feed():
-    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    # Ensure the user is logged in; current_user is available here
+    if not current_user.is_authenticated:
+        return jsonify({"error": "Not authenticated"}), 401
+
+    user_id = current_user.id  # Get the user_id from the main request context
+    print(f"User ID from main context: {user_id}")
+
+    return Response(generate_frames(user_id), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/status')
 def status():
